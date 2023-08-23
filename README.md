@@ -30,13 +30,19 @@ Tallysman ROS2 is a ROS2 package that provides functionality for interfacing wit
 To install Tallysman ROS2, follow these steps:
 
 1. Workspace: Move to your workspace
-2. Clone the repository: 
-  'git clone https://github.com/indro-robotics/tallysman_ros2.git'
-3. Build the package using colcon: 
-  'cd ~/ros_ws'
-  'colcon build'
-4. 3. Source the setup file:
-  'source install/setup.bash'
+2. Clone the repository:
+   ```
+   git clone https://github.com/indro-robotics/tallysman_ros2.git
+   ```
+4. Build the package using colcon:
+   ```
+   cd ~/ros_ws
+   colcon build
+   ```
+3. Source the setup file:
+   ```
+   source install/setup.bash
+   ```
 
 
 ## Usage
