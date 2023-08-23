@@ -2,10 +2,60 @@ import rclpy
 from rclpy.node import Node
 from sensor_msgs.msg import NavSatFix
 import serial
+import threading
 import time
+from queue import Queue
+import sys
+
+class TallysmanGPSPublisher(Node):
+    def __init__(self):
+        super().__init__('tallysman_gps_publisher')
+
+        self.publisher_ = self.create_publisher(NavSatFix, 'tallysman_gps_data', 50)
+        self.ser = serial.Serial('/dev/ttyUSB0', 230400)
+        self.lock = threading.Lock()
+        self.data_queue = Queue()
+
+        # Create a timer that calls the 'publish_gps_data' method every 0.1 seconds (10 Hz).
+        self.timer = self.create_timer(0.05, self.publish_gps_data)
+
+        # Start a separate thread for reading and parsing GPS data
+        self.read_thread = threading.Thread(target=self.read_and_parse_data)
+        self.read_thread.daemon = True  # Allow the thread to be terminated when the main program exits
+        self.read_thread.start()
+
+    def read_and_parse_data(self):
+        while rclpy.ok():
+            try:
+                data = self.ser.readline().decode('utf-8', errors='ignore').strip()
+                if data:
+                    self.data_queue.put(data)
+            except UnicodeDecodeError:
+                self.get_logger().warn('Ignoring invalid characters in received data.')
+
+
+    def publish_gps_data(self):
+        while not self.data_queue.empty():
+            data = self.data_queue.get()
+            with self.lock:
+                if data.startswith('$GNGGA'):
+                    latitude, longitude = parse_nmea_gga(data)
+                elif data.startswith('$GNRMC'):
+                    latitude, longitude = parse_nmea_rmc(data)
+                else:
+                    latitude, longitude = None, None
+
+                if latitude is not None and longitude is not None:
+                    msg = NavSatFix()
+                    msg.latitude = latitude
+                    msg.longitude = longitude
+                    self.publisher_.publish(msg)
+                    current_time = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
+                    self.get_logger().info('[{}] Published GPS data - Latitude: {:.6f}, Longitude: {:.6f}'.format(current_time, latitude, longitude))
 
 def parse_nmea_gga(data):
- 
+    # Your existing parse_nmea_gga function here
+     
     # Split the NMEA GGA data into individual parts using comma (,) as the delimiter
     parts = data.split(',')
  
@@ -44,7 +94,9 @@ def parse_nmea_gga(data):
         # Return None for latitude and longitude if the necessary fields are not present in the data.
         return None, None
 
+
 def parse_nmea_rmc(data):
+    # Your existing parse_nmea_rmc function here
 
     # Split the NMEA RMC data into individual parts using comma (,) as the delimiter.
     parts = data.split(',')
@@ -84,69 +136,11 @@ def parse_nmea_rmc(data):
         # Return None for latitude and longitude if the necessary fields are not present in the data.
         return None, None
  
-class TallysmanGPSPublisher(Node):
-    def __init__(self):
-        super().__init__('tallysman_gps_publisher')
-
-        # Create a publisher to publish NavSatFix messages on the topic 'tallysman_gps_data' with a queue size of 50.
-        self.publisher_ = self.create_publisher(NavSatFix, 'tallysman_gps_data', 50)
-
-        # Initialize a serial connection with the GPS device at '/dev/ttyUSB0' with a baud rate of 230400.
-        self.ser = serial.Serial('/dev/ttyUSB0', 230400)
-
-        # Create a timer that calls the 'publish_gps_data' method every 0.1 seconds (10 Hz).
-        self.timer = self.create_timer(0.05, self.publish_gps_data)  # Publish data every 0.1 second
-
-    def publish_gps_data(self):
-        try:
-            # Read a line of NMEA data from the GPS device and decode it to a string using 'utf-8' encoding,
-            # ignoring any invalid characters and removing leading/trailing whitespaces.
-            data = self.ser.readline().decode('utf-8', errors='ignore').strip()
-
-            # Check if any data is received from the GPS device.
-            if data:
-
-                # Check the NMEA sentence type to determine which parser function to use.
-                if data.startswith('$GNGGA'):
-                    # Parse the NMEA GGA data to extract GPS latitude and longitude.
-                    latitude, longitude = parse_nmea_gga(data)
-                 
-                elif data.startswith('$GNRMC'):
-                    # Parse the NMEA RMC data to extract GPS latitude and longitude.
-                    latitude, longitude = parse_nmea_rmc(data)
-                 
-                else:
-                    # If the sentence type is unknown or unsupported, set latitude and longitude to None.
-                    latitude, longitude = None, None
-
-                # Check if valid latitude and longitude values are obtained.
-                if latitude is not None and longitude is not None:
-
-                    # Create a NavSatFix message and set its latitude and longitude fields.
-                    msg = NavSatFix()
-                    msg.latitude = latitude
-                    msg.longitude = longitude
-
-                    # Publish the NavSatFix message on the 'tallysman_gps_data' topic.
-                    self.publisher_.publish(msg)
-
-                    # Get the current time in human-readable format
-                    current_time = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
-                 
-                    # Log the published GPS data along with the current time.
-                    self.get_logger().info('[{}] Published GPS data - Latitude: {:.6f}, Longitude: {:.6f}'.format(current_time, latitude, longitude))
-         
-        except UnicodeDecodeError:
-            # If there is a UnicodeDecodeError while decoding the received data, log a warning indicating that invalid characters are ignored.
-            self.get_logger().warn('Ignoring invalid characters in received data.')
 
 def main(args=None):
     rclpy.init(args=args)
-
     tallysman_gps_publisher = TallysmanGPSPublisher()
-
     rclpy.spin(tallysman_gps_publisher)
-
     tallysman_gps_publisher.destroy_node()
     rclpy.shutdown()
 
