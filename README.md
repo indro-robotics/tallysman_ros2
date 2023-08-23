@@ -50,7 +50,7 @@ To install Tallysman ROS2, follow these steps:
 
 To use Tallysman ROS2 in your ROS2-based system, follow these steps:
 
-1. Launch the Tallysman ROS2 node:
+* Launch the Tallysman ROS2 node:
    ```
    ros2 run tallysman_ros2 tallysman_gps
    ```
@@ -59,6 +59,9 @@ To use Tallysman ROS2 in your ROS2-based system, follow these steps:
       sudo chmod a+rw /dev/ttyUSB0
       ```
     ![Screenshot from 2023-08-23 12-53-12](https://github.com/indro-robotics/tallysman_ros2/assets/128490600/c46049b1-e139-4b14-b243-a2f6754a18fb)
+
+   When you ros run the ``` tallysman_gps ``` node, you will see latitude and longitude data.
+   ![Screenshot from 2023-08-23 12-59-25](https://github.com/indro-robotics/tallysman_ros2/assets/128490600/0d7bc44d-9f89-4aa1-9c1f-ba5538103a3b)
     
 
 ## Contributing
