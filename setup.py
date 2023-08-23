@@ -23,6 +23,7 @@ setup(
             "tallysman_gps = tallysman_ros2.tallysman_gps:main",
             "tallysman_gps_gga = tallysman_ros2.tallysman_gps_gga:main",
             "tallysman_gps_rmc = tallysman_ros2.tallysman_gps_rmc:main",
+            "tallysman_gps_visualizer = tallysman_ros2.tallysman_gps_visualizer:main",
         ],
     },
 )
