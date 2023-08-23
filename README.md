@@ -54,8 +54,13 @@ To use Tallysman ROS2 in your ROS2-based system, follow these steps:
    ```
    ros2 run tallysman_ros2 tallysman_gps
    ```
-3. 
+2. 
 
+## Contributing
+
+Contributions to Tallysman ROS2 are welcome! If you find any issues or have suggestions for improvements, please open an issue or submit a pull request on GitHub.
+
+## License
 
 
   
