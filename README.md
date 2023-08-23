@@ -40,8 +40,8 @@ To install Tallysman ROS2, follow these steps:
   cd ~/ros_ws
   colcon build
   ```
-3. Source the setup file:
-     ```
+4. source the setup file:
+  ```
   source install/setup.bash
   ```
 
