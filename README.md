@@ -62,7 +62,8 @@ To use Tallysman ROS2 in your ROS2-based system, follow these steps:
 
    When you ros run the ``` tallysman_gps ``` node, you will see latitude and longitude data.
    ![Screenshot from 2023-08-23 12-59-25](https://github.com/indro-robotics/tallysman_ros2/assets/128490600/0d7bc44d-9f89-4aa1-9c1f-ba5538103a3b)
-    
+  
+  * 
 
 ## Contributing
 
