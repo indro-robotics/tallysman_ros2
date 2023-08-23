@@ -69,7 +69,9 @@ To use Tallysman ROS2 in your ROS2-based system, follow these steps:
   ```
    ros2 run tallysman_ros2 tallysman_gps_visualize
   ```
-      
+  ![Screenshot from 2023-08-23 13-04-24](https://github.com/indro-robotics/tallysman_ros2/assets/128490600/dab1c3fa-3960-4bcc-b427-448d003fe5be)
+
+  
 
 ## Contributing
 
