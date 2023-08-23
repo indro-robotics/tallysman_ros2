@@ -44,8 +44,9 @@ To install Tallysman ROS2, follow these steps:
 To use Tallysman ROS2 in your ROS2-based system, follow these steps:
 
 1. Launch the Tallysman ROS2 node:
-   ```bash
-   'ros2 run tallysman_ros2 tallysman_gps'
+   ```
+   ros2 run tallysman_ros2 tallysman_gps
+   ```
 3. 
 
 
