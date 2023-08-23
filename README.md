@@ -10,7 +10,7 @@ ROS2 Driver
 - [Installation](#installation)
 - [Usage](#usage)
 - [Contributing](#contributing)
-- [License](#license)
+- [Reference](#reference)
 
 
 ## Introduction
@@ -60,7 +60,9 @@ To use Tallysman ROS2 in your ROS2-based system, follow these steps:
 
 Contributions to Tallysman ROS2 are welcome! If you find any issues or have suggestions for improvements, please open an issue or submit a pull request on GitHub.
 
-## License
+# Reference:
+
+  For more information about the Tallysman ROS2 driver please refer to https://github.com/indro-robotics/tallysman_ros2.git
 
 
   
