@@ -70,7 +70,11 @@ To use Tallysman ROS2 in your ROS2-based system, follow these steps:
    ros2 run tallysman_ros2 tallysman_gps_visualize
   ```
   ![Screenshot from 2023-08-23 13-04-24](https://github.com/indro-robotics/tallysman_ros2/assets/128490600/dab1c3fa-3960-4bcc-b427-448d003fe5be)
-
+* Next, Open your favourite web browser, and navigate to gps_maps.html, this will point your location
+  ![Screenshot from 2023-08-23 13-07-25](https://github.com/indro-robotics/tallysman_ros2/assets/128490600/f8028fba-fbd7-4d91-a5a2-e98fcd2631e6)
+* When you move around the area, you can see all the points where you have navigated. (Note: You need to refresh the browser every time you move)
+  ![Screenshot from 2023-08-23 13-10-57](https://github.com/indro-robotics/tallysman_ros2/assets/128490600/f429e21d-d209-46b7-83b0-1f55882ac869)
+* To view active topics: 
   
 
 ## Contributing
