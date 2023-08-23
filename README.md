@@ -1,11 +1,21 @@
 # tallysman_ros2
-ROS2 (humble) Python Script for Tallysman Antenna: Extracting Latitude and Longitude
+This repository contains the ROS2 package for integrating Tallysman GNSS and GNRMC receivers with ROS2-based systems.
 
 ROS2 Driver
 
-## Overview
+## Table of Contents
 
-The Tallysman ROS 2 Package is a driver designed to facilitate the integration of Tallysman's high-precision GNSS (Global Navigation Satellite System) & GNRMC (Global Positioning Recommended Minimum)receivers into ROS 2 (Robot Operating System 2) based robotic systems. This package provides ROS 2 nodes, drivers, and utilities to interact with Tallysman GNSS receivers, enabling accurate localization, navigation, and time synchronization for your robotic projects.
+- [Introduction](#introduction)
+- [Features](#features)
+- [Installation](#installation)
+- [Usage](#usage)
+- [Contributing](#contributing)
+- [License](#license)
+
+
+## Introduction
+
+Tallysman ROS2 is a ROS2 package that provides functionality for interfacing with Tallysman GNSS receivers. It allows you to receive and process GNSS data within your ROS2-based systems. This package provides ROS 2 nodes, drivers, and utilities to interact with Tallysman GNSS receivers, enabling accurate localization, navigation, and time synchronization for your robotic projects.
 
 
 ### Features
@@ -14,5 +24,7 @@ The Tallysman ROS 2 Package is a driver designed to facilitate the integration o
 - ROS 2 Integration: Seamlessly integrate GNSS data into your ROS 2 ecosystem, making it easy to access and use GNSS information within your ROS-based applications.
 - Customizable Configuration: Tailor the configuration to your specific requirements, with options for different GNSS constellations, frequencies, and data output formats.
 - Monitoring Tool: Monitor you robot's location a map view.
+
+
   
 
