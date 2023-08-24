@@ -1,0 +1,9 @@
+ament_copyright==0.12.7
+ament_flake8==0.12.7
+ament_pep257==0.12.7
+folium==0.14.0
+pyserial==3.5
+pytest==6.2.5
+rclpy==3.3.9
+sensor_msgs==4.2.3
+setuptools==58.2.0
