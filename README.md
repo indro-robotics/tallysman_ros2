@@ -44,6 +44,11 @@ To install Tallysman ROS2, follow these steps:
   ```
   source install/setup.bash
   ```
+5. Go to your project, and install requirements.txt for installing all the required libraries at once. (for exampe mine is under test_ws/src/tallysman_ros2)
+    ```
+    cd test_ws/src/tallysman_ros2
+    pip install -r requirements.txt
+      ```
 
 
 ## :books: Usage
