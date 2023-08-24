@@ -54,7 +54,7 @@ To use Tallysman ROS2 in your ROS2-based system, follow these steps:
    ```
    ros2 run tallysman_ros2 tallysman_gps
    ```
-      If you face permission error like below image, use   
+      <mark>If you face permission error like below image, use</mark>  
       ```
       sudo chmod a+rw /dev/ttyUSB0
       ```
