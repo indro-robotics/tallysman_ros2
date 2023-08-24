@@ -7,8 +7,10 @@ ROS2 Driver
 
 - [Introduction](#introduction)
 - [Features](#features)
+- [Requirements](#requirements)
 - [Installation](#installation)
 - [Usage](#usage)
+- [Video](#video)
 - [Contributing](#contributing)
 - [Reference](#reference)
 
@@ -24,6 +26,11 @@ Tallysman ROS2 is a ROS2 package that provides functionality for interfacing wit
 - ROS 2 Integration: Seamlessly integrate GNSS data into your ROS 2 ecosystem, making it easy to access and use GNSS information within your ROS-based applications.
 - Customizable Configuration: Tailor the configuration to your specific requirements, with options for different GNSS constellations, frequencies, and data output formats.
 - Monitoring Tool: Monitor you robot's location a map view.
+
+## :rocket: Requirements 
+* Ubuntu 22 [inline-style link](https://indrorobotics.notion.site/Installing-Dual-OS-and-upgrade-laptop-SSD-0d7c4b8ee9d54e14bbeb9f7ac24f8079?pvs=4)
+* ROS (Humble) [inline-style link](https://www.notion.so/indrorobotics/Getting-Started-with-ROS2-a3960c906f0d46789cd1d7b329784dd0)
+* Python [inline-style link](https://docs.python.org/3/)
 
 ## :rocket: Installation 
 
