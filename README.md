@@ -28,30 +28,37 @@ Tallysman ROS2 is a ROS2 package that provides functionality for interfacing wit
 - Monitoring Tool: Monitor you robot's location a map view.
 
 ## :envelope_with_arrow: Requirements 
-* Ubuntu 22 [inline-style link](https://indrorobotics.notion.site/Installing-Dual-OS-and-upgrade-laptop-SSD-0d7c4b8ee9d54e14bbeb9f7ac24f8079?pvs=4)
-* ROS (Humble) [inline-style link](https://www.notion.so/indrorobotics/Getting-Started-with-ROS2-a3960c906f0d46789cd1d7b329784dd0)
-* Python [inline-style link](https://docs.python.org/3/)
+* [Ubuntu 22](https://indrorobotics.notion.site/Installing-Dual-OS-and-upgrade-laptop-SSD-0d7c4b8ee9d54e14bbeb9f7ac24f8079?pvs=4)
+* [ROS (Humble)](https://www.notion.so/indrorobotics/Getting-Started-with-ROS2-a3960c906f0d46789cd1d7b329784dd0)
+* [Python](https://docs.python.org/3/)
+  ```diff
+  + IMP NOTE: Source your package every time you make change or open a new terminal. 
+  + Else you will see Error like <<Package 'tallysman_ros2' not found>> even if you have clone it.
+  ```
 
 ## :rocket: Installation 
 
 To install Tallysman ROS2, follow these steps:
 
-1. Workspace: Move to your workspace
+1. ROS Workspace: Move to your ROS2 workspace (example: mine is test_ws)
+   ```
+    cd ~/test_ws/src
+    ```
 
-2. Clone the repository:
-  ```
-  git clone https://github.com/indro-robotics/tallysman_ros2.git
-  ```
-3. Build the package using colcon:
-  ```
-  cd ~/ros_ws
-  colcon build
-  ```
-4. source the setup file:
-  ```
-  source install/setup.bash
-  ```
-5. Go to your project, and install requirements.txt for installing all the required libraries at once. (for exampe mine is under test_ws/src/tallysman_ros2)
+3. Clone the repository:
+    ```
+    git clone https://github.com/indro-robotics/tallysman_ros2.git
+    ```
+4. Build the package using colcon:
+    ```
+    cd ~/test_ws
+    colcon build
+    ```
+5. source the setup file:
+    ```
+    source install/setup.bash
+    ```
+6. Go to your project, and install requirements.txt for installing all the required libraries at once. (for exampe mine is under test_ws/src/tallysman_ros2)
     ```
     cd test_ws/src/tallysman_ros2
     pip install -r requirements.txt
@@ -92,8 +99,10 @@ To use Tallysman ROS2 in your ROS2-based system, follow these steps:
   ![Screenshot from 2023-08-23 13-07-25](https://github.com/indro-robotics/tallysman_ros2/assets/128490600/f8028fba-fbd7-4d91-a5a2-e98fcd2631e6)
 * When you move around the area, you can see all the points where you have navigated. (Note: You need to refresh the browser every time you move)
   ![Screenshot from 2023-08-23 13-10-57](https://github.com/indro-robotics/tallysman_ros2/assets/128490600/f429e21d-d209-46b7-83b0-1f55882ac869)
-* To view active topics: 
+* To view active topics:
+  ![Screenshot from 2023-08-25 09-26-54](https://github.com/indro-robotics/tallysman_ros2/assets/128490600/b0748f2a-5087-4135-b3a4-aa13047c5741)
 
+  
 ## :camera_flash: Video
 
 https://github.com/indro-robotics/tallysman_ros2/assets/128490600/ec1810b3-661d-4fbc-b535-047140455af2
