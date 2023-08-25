@@ -12,7 +12,9 @@ ROS2 Driver
 - [Usage](#usage)
 - [Video](#video)
 - [Contributing](#contributing)
+- [Purchase Call](#purchase)
 - [Reference](#reference)
+- [License](#license)
 
 
 ## :hugs: Introduction
@@ -28,6 +30,7 @@ Tallysman ROS2 is a ROS2 package that provides functionality for interfacing wit
 - Monitoring Tool: Monitor you robot's location a map view.
 
 ## :envelope_with_arrow: Requirements 
+* [Tallymatics Antenna](https://tallymatics.com/product/tw5390/)
 * [Ubuntu 22](https://indrorobotics.notion.site/Installing-Dual-OS-and-upgrade-laptop-SSD-0d7c4b8ee9d54e14bbeb9f7ac24f8079?pvs=4)
 * [ROS (Humble)](https://www.notion.so/indrorobotics/Getting-Started-with-ROS2-a3960c906f0d46789cd1d7b329784dd0)
 * [Python](https://docs.python.org/3/)
@@ -107,13 +110,19 @@ To use Tallysman ROS2 in your ROS2-based system, follow these steps:
 
   
 ## :camera_flash: Video
-
 https://github.com/indro-robotics/tallysman_ros2/assets/128490600/bf561eb6-1bd1-4250-8b38-5b735d711047
 
 ## :handshake: Contributing
-
 Contributions to Tallysman ROS2 are welcome! If you find any issues or have suggestions for improvements, please open an issue or submit a pull request on GitHub.
 
-# :sparkles: Reference:
+# :phone: Purchase Call:
+For inquiries or to purchase our Tallymatics Antenna, please contact us at [Luke Corbeth(at InDro Robotics)](lcorbeth@indrorobotics.com) or [Tallysman](info@tallymatics.com). We are excited to assist you and provide further information about our offerings.
 
-  For more information about the Tallysman ROS2 driver please refer to https://github.com/indro-robotics/tallysman_ros2.git
+# :sparkles: Reference:
+For more information about the Tallysman ROS2 driver please refer to https://github.com/indro-robotics/tallysman_ros2.git
+
+# :ledger: Resources:
+We would like to express our sincere gratitude to [Tallymatics](https://tallymatics.com/) for their collaboration and support. Their contributions have been invaluable to our project's success, and we look forward to continuing our partnership in the future.
+
+# :page_with_curl: License:
+This project is licensed under the terms of the [MIT License](https://github.com/indro-robotics/tallysman_ros2/blob/main/LICENSE)https://github.com/indro-robotics/tallysman_ros2/blob/main/LICENSE 
