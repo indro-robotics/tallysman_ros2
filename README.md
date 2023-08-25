@@ -119,10 +119,10 @@ Contributions to Tallysman ROS2 are welcome! If you find any issues or have sugg
 For inquiries or to purchase our Tallymatics Antenna, please contact us at [Luke Corbeth(at InDro Robotics)](lcorbeth@indrorobotics.com) or [Tallysman](info@tallymatics.com). We are excited to assist you and provide further information about our offerings.
 
 ## :sparkles: Reference:
-For more information about the Tallysman ROS2 driver please refer to https://github.com/indro-robotics/tallysman_ros2.git
+For more information about the Tallysman ROS2 driver please refer to [GitHub](https://github.com/indro-robotics/tallysman_ros2.git)
 
 ## :ledger: Resources:
 We would like to express our sincere gratitude to [Tallymatics](https://tallymatics.com/) for their collaboration and support. Their contributions have been invaluable to our project's success, and we look forward to continuing our partnership in the future.
 
 ## :page_with_curl: License:
-This project is licensed under the terms of the [MIT License](https://github.com/indro-robotics/tallysman_ros2/blob/main/LICENSE)https://github.com/indro-robotics/tallysman_ros2/blob/main/LICENSE 
+This project is licensed under the terms of the [MIT License](https://github.com/indro-robotics/tallysman_ros2/blob/main/LICENSE)
