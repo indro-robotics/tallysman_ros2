@@ -105,8 +105,7 @@ To use Tallysman ROS2 in your ROS2-based system, follow these steps:
   
 ## :camera_flash: Video
 
-https://github.com/indro-robotics/tallysman_ros2/assets/128490600/ec1810b3-661d-4fbc-b535-047140455af2
-
+https://github.com/indro-robotics/tallysman_ros2/assets/128490600/bf561eb6-1bd1-4250-8b38-5b735d711047
 
 ## :handshake: Contributing
 
