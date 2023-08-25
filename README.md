@@ -27,7 +27,7 @@ Tallysman ROS2 is a ROS2 package that provides functionality for interfacing wit
 - Customizable Configuration: Tailor the configuration to your specific requirements, with options for different GNSS constellations, frequencies, and data output formats.
 - Monitoring Tool: Monitor you robot's location a map view.
 
-## :rocket: Requirements 
+## :envelope_with_arrow: Requirements 
 * Ubuntu 22 [inline-style link](https://indrorobotics.notion.site/Installing-Dual-OS-and-upgrade-laptop-SSD-0d7c4b8ee9d54e14bbeb9f7ac24f8079?pvs=4)
 * ROS (Humble) [inline-style link](https://www.notion.so/indrorobotics/Getting-Started-with-ROS2-a3960c906f0d46789cd1d7b329784dd0)
 * Python [inline-style link](https://docs.python.org/3/)
@@ -93,12 +93,16 @@ To use Tallysman ROS2 in your ROS2-based system, follow these steps:
 * When you move around the area, you can see all the points where you have navigated. (Note: You need to refresh the browser every time you move)
   ![Screenshot from 2023-08-23 13-10-57](https://github.com/indro-robotics/tallysman_ros2/assets/128490600/f429e21d-d209-46b7-83b0-1f55882ac869)
 * To view active topics: 
-  
 
-## Contributing
+## :camera_flash: Video
+
+https://github.com/indro-robotics/tallysman_ros2/assets/128490600/ec1810b3-661d-4fbc-b535-047140455af2
+
+
+## :handshake: Contributing
 
 Contributions to Tallysman ROS2 are welcome! If you find any issues or have suggestions for improvements, please open an issue or submit a pull request on GitHub.
 
-# Reference:
+# :sparkles: Reference:
 
   For more information about the Tallysman ROS2 driver please refer to https://github.com/indro-robotics/tallysman_ros2.git
