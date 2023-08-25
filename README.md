@@ -107,8 +107,11 @@ To use Tallysman ROS2 in your ROS2-based system, follow these steps:
 * To view active topics:
 ![tallysman6](https://github.com/indro-robotics/tallysman_ros2/assets/128490600/15d5bd97-fad7-4944-b339-7ea77791b593)
 
-
-  
+* All the latitude and longitude data will be stored in 'gps_history.json' file, you can find .json file in your ros directoy after running 'tallysman_gps_visualizer.py' node
+    ```
+   cd ~/test_ws
+  ```
+    
 ## :camera_flash: Video
 https://github.com/indro-robotics/tallysman_ros2/assets/128490600/bf561eb6-1bd1-4250-8b38-5b735d711047
 
