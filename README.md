@@ -80,13 +80,12 @@ To use Tallysman ROS2 in your ROS2-based system, follow these steps:
   sudo chmod a+rw /dev/ttyUSB0
   ```
 
-![Screenshot from 2023-08-23 12-53-12](https://github.com/indro-robotics/tallysman_ros2/assets/128490600/c46049b1-e139-4b14-b243-a2f6754a18fb)
-
-
+![tallysman1](https://github.com/indro-robotics/tallysman_ros2/assets/128490600/b1640fd8-1d59-4c8e-af26-7435f9b13373)
 
 
    When you ros run the ``` tallysman_gps ``` node, you will see latitude and longitude data.
-   ![Screenshot from 2023-08-23 12-59-25](https://github.com/indro-robotics/tallysman_ros2/assets/128490600/0d7bc44d-9f89-4aa1-9c1f-ba5538103a3b)
+  ![tallysman2](https://github.com/indro-robotics/tallysman_ros2/assets/128490600/a8a1d9ba-3aa0-4ad2-b6b3-57460abee6ba)
+
   
 * Launch tallysman_gps_visualize node:
   Open another terminal and source it.
@@ -94,13 +93,17 @@ To use Tallysman ROS2 in your ROS2-based system, follow these steps:
   ```
    ros2 run tallysman_ros2 tallysman_gps_visualize
   ```
-  ![Screenshot from 2023-08-23 13-04-24](https://github.com/indro-robotics/tallysman_ros2/assets/128490600/dab1c3fa-3960-4bcc-b427-448d003fe5be)
+![tallysman3](https://github.com/indro-robotics/tallysman_ros2/assets/128490600/8e2966a7-eeab-4263-9336-2652a8be6cbe)
+
 * Next, Open your favourite web browser, and navigate to gps_maps.html, this will point your location
-  ![Screenshot from 2023-08-23 13-07-25](https://github.com/indro-robotics/tallysman_ros2/assets/128490600/f8028fba-fbd7-4d91-a5a2-e98fcd2631e6)
+![tallysman4](https://github.com/indro-robotics/tallysman_ros2/assets/128490600/021543d2-bf22-4336-bb18-b11032190e2b)
+
 * When you move around the area, you can see all the points where you have navigated. (Note: You need to refresh the browser every time you move)
-  ![Screenshot from 2023-08-23 13-10-57](https://github.com/indro-robotics/tallysman_ros2/assets/128490600/f429e21d-d209-46b7-83b0-1f55882ac869)
+![tallysman5](https://github.com/indro-robotics/tallysman_ros2/assets/128490600/a64d5f7f-6260-4bda-ad56-82c8e89c9b9f)
+
 * To view active topics:
-  ![Screenshot from 2023-08-25 09-26-54](https://github.com/indro-robotics/tallysman_ros2/assets/128490600/b0748f2a-5087-4135-b3a4-aa13047c5741)
+![tallysman6](https://github.com/indro-robotics/tallysman_ros2/assets/128490600/15d5bd97-fad7-4944-b339-7ea77791b593)
+
 
   
 ## :camera_flash: Video
