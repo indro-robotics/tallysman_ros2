@@ -1,5 +1,5 @@
 # :world_map: tallysman_ros2 
-This repository contains the ROS2 package for integrating Tallysman GNSS and GNRMC receivers with ROS2-based systems.
+This repository contains the ROS2 package for integrating Tallysman GNSS 5790 and GNRMC receivers with ROS2-based systems.
 
 ROS2 Driver
 
