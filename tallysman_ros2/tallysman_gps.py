@@ -11,16 +11,14 @@ class TallysmanGPSPublisher(Node):
     def __init__(self):
         super().__init__('tallysman_gps_publisher')
  
-        self.declare_parameter('usb_port', rclpy.Parameter.Type.STRING,)
-        self.declare_parameter('node_name', rclpy.Parameter.Type.STRING)
-        self.declare_parameter('baud_rate', rclpy.Parameter.Type.INTEGER)
-        self.declare_parameter('topic_name', rclpy.Parameter.Type.STRING)
+        self.declare_parameter('usb_port','/dev/ttyUSB0')
+        self.declare_parameter('baud_rate', 230400)
+        self.declare_parameter('topic_name', 'gps_data')
  
-        usb_port = Parameter('usb_port', Parameter.Type.STRING, '/dev/ttyUSB0').value
-        node_name = Parameter('node_name', Parameter.Type.STRING, 'tallysman_gps_publisher').value
-        baud_rate = Parameter('baud_rate', Parameter.Type.INTEGER, 230400).value
-        topic_name = Parameter('topic_name', Parameter.Type.STRING, 'tallysman_gps_data').value
- 
+        usb_port = self.get_parameter('usb_port').get_parameter_value().string_value
+        baud_rate = self.get_parameter('baud_rate').get_parameter_value().integer_value
+        topic_name = self.get_parameter("topic_name").get_parameter_value().string_value
+
  
         self.publisher_ = self.create_publisher(NavSatFix, topic_name, 50)
         self.ser = serial.Serial(usb_port, baud_rate)
