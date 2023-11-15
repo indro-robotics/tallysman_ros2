@@ -1,0 +1,4 @@
+tallysman_gps_publisher:
+  usb_port: '/dev/ttyUSB7'
+  baud_rate: 230400
+  topic_name: 'tallysman'
