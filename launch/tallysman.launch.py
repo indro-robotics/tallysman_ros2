@@ -30,7 +30,7 @@ def generate_launch_description():
             parameters=[
                 {'baud_rate': 230400},
                 {'topic_name': 'gps_data_launch'},
-                {'usb_port':'/dev/ttyUSB10'}
+                {'usb_port':'/dev/ttyUSB0'}
             ]
         )
     ])

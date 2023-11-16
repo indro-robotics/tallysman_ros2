@@ -29,7 +29,7 @@ setup(
     name=package_name,
     version='0.0.0',
     packages=[package_name],
-    data_files=package_files(data_files, ['launch/', 'params/']),
+    data_files=package_files(data_files, ['launch/', 'params/', 'scripts/']),
     install_requires=['setuptools'],
     zip_safe=True,
     maintainer='gtirth',
@@ -41,8 +41,8 @@ setup(
         'console_scripts': [
             #'rosie_control = rosie_control.rosie-control:main'
             "tallysman_gps = tallysman_ros2.tallysman_gps:main",
-            "tallysman_gps_gga = tallysman_ros2.tallysman_gps_gga:main",
-            "tallysman_gps_rmc = tallysman_ros2.tallysman_gps_rmc:main",
+            # "tallysman_gps_gga = tallysman_ros2.tallysman_gps_gga:main",
+            # "tallysman_gps_rmc = tallysman_ros2.tallysman_gps_rmc:main",
             "tallysman_gps_visualizer = tallysman_ros2.tallysman_gps_visualizer:main"
         ],
     },
