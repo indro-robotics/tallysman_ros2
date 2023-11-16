@@ -21,6 +21,10 @@ ROS2 Driver
 
 Tallysman ROS2 is a ROS2 package that provides functionality for interfacing with Tallysman GNSS receivers. It allows you to receive and process GNSS data within your ROS2-based systems. This package provides ROS 2 nodes, drivers, and utilities to interact with Tallysman GNSS receivers, enabling accurate localization, navigation, and time synchronization for your robotic projects.
 
+### USB port
+You can find your by command "ls /dev/ttyUSB replace in launch file with your correct port as shown below
+![image](https://github.com/indro-robotics/tallysman_ros2/assets/128490600/a7c957ba-d4a4-4160-80e0-fedfa7e63486)
+
 
 ### :dizzy: Features
 
