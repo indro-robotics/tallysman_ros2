@@ -83,6 +83,6 @@ class UbloxSerial:
         pass
 
     def config(self):
-        configData: list = [('CFG_SPARTN_USE_SOURCE', 0), ('CFG_SPARTN_USE_SOURCE', 1)]
+        configData: list = [('CFG_SPARTN_USE_SOURCE', 0)]
         ubx = UBXMessage.config_set(1, 0, configData)
         self.send(ubx.serialize())

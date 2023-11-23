@@ -57,7 +57,6 @@ class PointPerfectModule:
     def __connect(self):
         pc = self.pc
         self.client.connect(host=pc.Host, port=pc.Port, keepalive=pc.KeepAlive)
-        #self.client.on_connect(lambda client, userdata, flags, rc : self.logger.info("Connection status : " + rc))
 
     def __disconnect(self):
         self.client.disconnect()
