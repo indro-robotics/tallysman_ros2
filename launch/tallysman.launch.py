@@ -28,9 +28,9 @@ def generate_launch_description():
             output='screen',
             emulate_tty=True,
             parameters=[
-                {'baud_rate': 230400},
+                {'baud_rate': 38400},
                 {'topic_name': 'gps_data_launch'},
-                {'usb_port':'/dev/ttyUSB0'}
+                {'usb_port':'/dev/ttyUSB1'}
             ]
         )
     ])

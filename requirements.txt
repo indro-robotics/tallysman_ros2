@@ -8,3 +8,5 @@ rclpy==3.3.10
 sensor_msgs==4.2.3
 setuptools==59.6.0
 cs-events==0.4.1
+paho-mqtt==1.6.1
+pyubx2==1.2.33
