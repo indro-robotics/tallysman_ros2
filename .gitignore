@@ -1,5 +1,3 @@
-tallysman_ros2/__pycache__/__init__.cpython-310.pyc
-.vscode/c_cpp_properties.json
-.vscode/launch.json
-.vscode/settings.json
-tallysman_ros2/__pycache__/tallysman_gps.cpython-310.pyc
+__pycache__/
+.vscode/
+pointperfect_files/
