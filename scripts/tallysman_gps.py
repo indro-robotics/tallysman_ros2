@@ -36,7 +36,7 @@ class TallysmanGPSPublisher(Node):
         rtcm_topic_name = self.get_parameter("rtcm_topic_name").get_parameter_value().string_value
         #endregion
 
-        self.ser = UbloxSerial(usb_port, baud_rate, self.get_logger())
+        self.ser = UbloxSerial(usb_port, baud_rate, self.get_logger(), self.is_base, self.use_corrections)
 
         #region Conditional attachments to events based on rover/base
         if self.is_base:
@@ -58,15 +58,11 @@ class TallysmanGPSPublisher(Node):
             # Publisher for location information. Taking location from rover since it is more accurate.
             self.publisher = self.create_publisher(NavSatFix, topic_name, 50)
         #endregion
-        
-        # Configurations to antenna to work in a specified mode.
-        self.ser.config(self.is_base, self.use_corrections)
 
         self.lock = threading.Lock()
 
         # Timer to poll status messages from base/rover for every sec.
-        self.timer = self.create_timer(1, self.poll_messages)
-
+        self.timer = self.create_timer(1, self.ser.poll_messages)
         pass
 
     """
@@ -117,6 +113,10 @@ class TallysmanGPSPublisher(Node):
             self.ser.send(data)
             rmg = RTCMReader.parse(data)
             self.get_logger().info('Received RTCM message: ' + rmg.identity)
+        pass
+
+    def poll_messages(self) -> None:
+        self.ser.poll_messages(self.is_base)
         pass
 
 def main(args=None):

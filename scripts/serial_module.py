@@ -1,5 +1,6 @@
 import logging
 import threading
+import time
 from typing import Literal, overload
 import serial
 from events import Event
@@ -16,9 +17,12 @@ class UbloxSerial:
         baudrate: The speed at which data is transmitted.
         logger: Logger must contain basic log functions.
     """
-    def __init__(self, port_name: str, baudrate: Literal[1200, 2400, 4800, 9600, 19200, 38400, 57600, 115200, 230400, 460800], logger):
+    def __init__(self, port_name: str, baudrate: Literal[1200, 2400, 4800, 9600, 19200, 38400, 57600, 115200, 230400, 460800], logger, is_base, use_corrections):
         self.__port = serial.Serial(port_name, baudrate)
         
+        self.__is_base = is_base
+        self.__use_corrections = use_corrections
+
         # protfilter=7 gives out UBX, NMEA and RTCM messages.
         self.__ubr = ubxreader.UBXReader(self.__port, protfilter=7)
 
@@ -33,6 +37,11 @@ class UbloxSerial:
         self.__read_thread = threading.Thread(target=self.__receive_thread, name="receive_thread_"+port_name)
         self.__read_thread.daemon = True  # Allow the thread to be terminated when the main program exits
         self.__read_thread.start()
+
+        # Configurations to antenna to work in a specified mode.
+        self.config()
+        self.__recent_ubx_message = dict[str,(float,UBXMessage)]()
+
         pass
     
     def open(self) -> None:
@@ -71,6 +80,7 @@ class UbloxSerial:
     """
     def ublox_message_received(self, message: UBXMessage) -> None:
         self.__logger.info("[Ublox]: "+ message.identity)
+        self.__recent_ubx_message[message.identity] = (time.time(), message)
         self.ublox_message_found(message)
         pass
     
@@ -104,18 +114,23 @@ class UbloxSerial:
         Polls the respective messages for rover/base to update status.
     """
     def poll_messages(self):
-        ubx = UBXMessage('NAV', 'NAV-POSECEF', POLL)
-        self.send(ubx.serialize())
+        poll_messages = [('NAV','NAV-HPPOSECEF'), ('NAV', 'NAV-HPPOSLLH')]
+        if not self.__is_base:
+            poll_messages.append(('NAV', 'NAV-RELPOSNED'))
+
+        for (class_name, msg_name) in poll_messages:
+            ubx = UBXMessage(class_name, msg_name, POLL)
+            self.send(ubx.serialize())
         pass
     
     """
         Configures the antenna based on parameters.
         Refer ubxtypes_configdb.py at /pyubx2/ubxtypes_configdb.py for equivalent name strings for different keys
     """
-    def config(self, is_base: bool = True, use_corrections: bool = False):
+    def config(self):
         configData: list
         configData = [('CFG_UART1INPROT_NMEA',1), ('CFG_UART1INPROT_UBX',1), ('CFG_UART1OUTPROT_NMEA',1), ('CFG_UART1OUTPROT_UBX',1)] # common configurations
-        if is_base:
+        if self.__is_base:
             # base related configurations
             configData.extend([('CFG_UART1INPROT_RTCM3X', 0), ('CFG_UART1OUTPROT_RTCM3X', 1), ('CFG_NAVSPG_DYNMODEL', 2)]) 
             configData.extend([('CFG_MSGOUT_RTCM_3X_TYPE1074_UART1', 0x1), ('CFG_MSGOUT_RTCM_3X_TYPE1084_UART1', 0x1), ('CFG_MSGOUT_RTCM_3X_TYPE1124_UART1', 0x1), ('CFG_MSGOUT_RTCM_3X_TYPE1094_UART1', 0x1)])
@@ -124,8 +139,8 @@ class UbloxSerial:
             configData.extend([('CFG_MSGOUT_RTCM_3X_TYPE4072_1_UART1', 0x1), ('CFG_MSGOUT_RTCM_3X_TYPE1230_UART1', 0x1), ('CFG_TMODE_MODE', 0x0)])
 
             # pointperfect related configurations
-            if use_corrections:
-                configData.extend([('CFG_SPARTN_USE_SOURCE',0), ('CFG_UART1INPROT_SPARTN',1), ('CFG_MSGOUT_UBX_RXM_SPARTN_UART1',1), ('CFG_UART2_BAUDRATE',460800)])
+            if self.__use_corrections:
+                configData.extend([('CFG_SPARTN_USE_SOURCE',0), ('CFG_UART1INPROT_SPARTN',1), ('CFG_MSGOUT_UBX_RXM_SPARTN_UART1',1)])
         else:
             # rover related configurations
             configData.extend([('CFG_UART1INPROT_RTCM3X', 1), ('CFG_MSGOUT_UBX_RXM_RTCM_UART1', 0x1)]) 
