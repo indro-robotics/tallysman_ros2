@@ -28,9 +28,9 @@ def generate_launch_description():
             output='screen',
             emulate_tty=True,
             parameters=[
-                {'baud_rate': 38400},
+                {'baud_rate': 230400},
                 {'topic_name': 'gps_data_launch'},
-                {'usb_port':'/dev/ttyUSB3'},
+                {'usb_port':'/dev/ttyUSB1'},
                 {'is_base': True},
                 {'use_corrections': True},
                 {'config_path': '/root/humble_ws/src/tallysman_ros2/pointperfect_files/ucenter-config.json'},
@@ -47,7 +47,7 @@ def generate_launch_description():
             parameters=[
                 {'baud_rate': 230400},
                 {'topic_name': 'gps_data_launch'},
-                {'usb_port':'/dev/ttyUSB1'},
+                {'usb_port':'/dev/ttyUSB3'},
                 {'use_corrections': False},
                 {'is_base': False},
                 {'rtcm_topic_name': 'rtcm_corrections'}

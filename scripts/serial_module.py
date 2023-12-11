@@ -8,6 +8,8 @@ import rclpy
 from pyubx2 import ubxreader, UBXMessage, GET, SET, POLL
 from pynmeagps import NMEAMessage
 from pyrtcm import RTCMMessage
+from tallysman_ros2_msgs.msg import GnssSignalStatus, GnssLocation
+from builtin_interfaces.msg import Time
 
 class UbloxSerial:
     """
@@ -70,7 +72,7 @@ class UbloxSerial:
                             self.rtcm_message_received(parsed_data)
                 except :
                     self.__logger.warn("Exception occured")
-                    pass
+                    raise
             else:
                 self.open()
                 self.__logger.warn("Reconnecting to port.")
@@ -89,6 +91,9 @@ class UbloxSerial:
     """
     def nmea_message_received(self, message: NMEAMessage) -> None:
         self.__logger.info("[Nmea]: "+ message.identity)
+        if message.identity == "GNRMC" or message.identity == "GNGGA":
+            self.__latitude = message.lat if message.lat else None
+            self.__longitude = message.lon if message.lon else None
         self.nmea_message_found(message)
         pass
     
@@ -114,7 +119,7 @@ class UbloxSerial:
         Polls the respective messages for rover/base to update status.
     """
     def poll_messages(self):
-        poll_messages = [('NAV','NAV-HPPOSECEF'), ('NAV', 'NAV-HPPOSLLH')]
+        poll_messages = [('NAV','NAV-HPPOSECEF'), ('NAV', 'NAV-HPPOSLLH'), ('NAV', 'NAV-PVT')]
         if not self.__is_base:
             poll_messages.append(('NAV', 'NAV-RELPOSNED'))
 
@@ -143,8 +148,92 @@ class UbloxSerial:
                 configData.extend([('CFG_SPARTN_USE_SOURCE',0), ('CFG_UART1INPROT_SPARTN',1), ('CFG_MSGOUT_UBX_RXM_SPARTN_UART1',1)])
         else:
             # rover related configurations
-            configData.extend([('CFG_UART1INPROT_RTCM3X', 1), ('CFG_MSGOUT_UBX_RXM_RTCM_UART1', 0x1)]) 
+            configData.extend([('CFG_UART1INPROT_RTCM3X', 1), ('CFG_MSGOUT_UBX_RXM_RTCM_UART1', 0x1), ('CFG_USBINPROT_RTCM3X', 1)]) 
         
         # Sets the configs only to RAM. will reset if the antenna is power cycled.
         ubx: UBXMessage = UBXMessage.config_set(1, 0, configData)
         self.send(ubx.serialize())
+
+    """
+        returns the Rover/Base status. Currently returning only Rover status. Will improve this further.
+    """
+    def get_status(self) -> GnssSignalStatus :
+        gnss_status = GnssSignalStatus()
+        loc = GnssLocation()
+        try:
+            
+            t = Time()
+            t.sec = int(time.time())
+            loc.time = t
+            if self.__latitude is not None and self.__longitude is not None:
+                loc.latitude = float(self.__latitude) 
+                loc.longitude = float(self.__longitude)
+                loc.valid_fix = True
+            else:
+                loc.valid_fix = False
+            gnss_status.gnss_location = loc
+            nav_hpposllh = self.get_recent_ubx_message('NAV-HPPOSLLH')
+            nav_pvt = self.get_recent_ubx_message('NAV-PVT')
+            nav_hpposecef = self.get_recent_ubx_message('NAV-HPPOSECEF')
+            nav_relposned = self.get_recent_ubx_message('NAV-RELPOSNED')
+            rxm_rtcm = self.get_recent_ubx_message('RXM-RTCM')
+            #gnss_status.header.time.sec = int(time.time())
+            if nav_relposned is not None:
+                gnss_status.heading = nav_relposned.relPosHeading
+                gnss_status.length = float(nav_relposned.relPosLength)
+            if nav_hpposecef is not None and nav_hpposllh is not None:
+                gnss_status.two_dimension_accuracy = float(nav_hpposllh.hAcc/1000) # scaling and meters conversion
+                gnss_status.three_dimension_accuracy = float(nav_hpposecef.pAcc/1000) # scaling and meters conversion
+            if rxm_rtcm is not None:
+                gnss_status.augmentations_used = True if rxm_rtcm.msgUsed == 2 else False
+            if nav_pvt is not None:
+                gnss_status.quality = self.__get_quality_string(nav_pvt)
+        except:
+            pass        
+        return gnss_status
+
+    """
+        returns a Ubx message only if it arrived in less than 10sec
+    """
+    def get_recent_ubx_message(self, msgId) -> UBXMessage:
+        try:
+            time_of_message,ubxmessage = self.__recent_ubx_message[msgId]
+            if time.time() - time_of_message < 10: # return only if received in less than 10sec
+                return ubxmessage
+            else:
+                return None
+        except:
+            return None
+    
+    """
+        returns the Quality string for status based on Nav_Pvt message.
+    """
+    def __get_quality_string(self, nav_pvt: UBXMessage) -> str:
+        if nav_pvt is None:
+            return ''
+        
+        quality = ''
+        
+        # Fix type definition
+        if nav_pvt.fixType == 0:
+            quality += 'NoFix'
+        elif nav_pvt.fixType == 1:
+            quality += 'DR'
+        elif nav_pvt.fixType == 2:
+            quality += '2D'
+        elif nav_pvt.fixType == 3:
+            quality += '3D'
+        elif nav_pvt.fixType == 4:
+            quality += 'GDR'
+        elif nav_pvt.fixType == 5:
+            quality += 'TF'
+
+        if nav_pvt.gnssFixOk == 1:
+            quality += '/DGNSS'
+        
+        if nav_pvt.carrSoln == 1:
+            quality += '/Float'
+        elif nav_pvt.carrSoln == 2:
+            quality += '/Fixed'
+
+        return quality

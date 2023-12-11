@@ -9,6 +9,7 @@ from scripts.pointperfect_module import PointPerfectModule
 from scripts.serial_module import UbloxSerial
 from pynmeagps import NMEAMessage
 from pyrtcm import RTCMMessage, RTCMReader
+from tallysman_ros2_msgs.msg import GnssSignalStatus
 
 class TallysmanGPSPublisher(Node):
     def __init__(self, args = None) -> None:
@@ -16,12 +17,12 @@ class TallysmanGPSPublisher(Node):
 
         #region Parameters declaration
         self.declare_parameter('usb_port','/dev/ttyUSB1')
-        self.declare_parameter('baud_rate', 38400)
+        self.declare_parameter('baud_rate', 230400)
         self.declare_parameter('topic_name', 'gps_data')
         self.declare_parameter('is_base', True) # Parameter {use_corrections} needs to be present if this is True
         self.declare_parameter('use_corrections', True) # Parameter {config_path} needs to be present if this is True.
         self.declare_parameter('region', 'us') # The region where antenna is present. Parameter only needed when use_corrections is True
-        self.declare_parameter('config_path', '') # The path where the corrections_config is placed. Parameter only needed when use_corrections is True
+        self.declare_parameter('config_path', '/root/humble_ws/src/tallysman_ros2/pointperfect_files/ucenter-config.json') # The path where the corrections_config is placed. Parameter only needed when use_corrections is True
         self.declare_parameter('rtcm_topic_name', 'rtcm_corrections') # This should be unique for a base/rover pair.
         #endregion
 
@@ -51,18 +52,24 @@ class TallysmanGPSPublisher(Node):
             self.rtcm_publisher = self.create_publisher(ByteMultiArray, rtcm_topic_name, 50)     
         else:
             self.ser.nmea_message_found += self.handle_nmea_message
-
+            
             # Subscriber for receiving RTCM corrections from base.
             self.rtcm_subscriber = self.create_subscription(ByteMultiArray, rtcm_topic_name, self.handle_rtcm_message, 50)
             
             # Publisher for location information. Taking location from rover since it is more accurate.
             self.publisher = self.create_publisher(NavSatFix, topic_name, 50)
+            # Timer to poll status messages from base/rover for every sec.
+            self.status_timer = self.create_timer(1, self.get_status)
+            # Publisher for location information. Taking location from rover since it is more accurate.
+            self.status_publisher = self.create_publisher(GnssSignalStatus, 'status', 50)
+
         #endregion
 
         self.lock = threading.Lock()
 
         # Timer to poll status messages from base/rover for every sec.
         self.timer = self.create_timer(1, self.ser.poll_messages)
+
         pass
 
     """
@@ -110,13 +117,14 @@ class TallysmanGPSPublisher(Node):
             self.get_logger().info('Published RTCM message with identity: ' + rtcmMessage.identity) 
         else:
             data = b''.join(rtcmMessage.data)
-            self.ser.send(data)
             rmg = RTCMReader.parse(data)
+            self.ser.send(rmg.serialize())
             self.get_logger().info('Received RTCM message: ' + rmg.identity)
         pass
 
-    def poll_messages(self) -> None:
-        self.ser.poll_messages(self.is_base)
+    def get_status(self) -> None:
+        status = self.ser.get_status()
+        self.status_publisher.publish(status)
         pass
 
 def main(args=None):
