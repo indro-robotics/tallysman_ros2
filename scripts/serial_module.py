@@ -141,17 +141,19 @@ class UbloxSerial:
             configData.extend([('CFG_MSGOUT_RTCM_3X_TYPE1074_UART1', 0x1), ('CFG_MSGOUT_RTCM_3X_TYPE1084_UART1', 0x1), ('CFG_MSGOUT_RTCM_3X_TYPE1124_UART1', 0x1), ('CFG_MSGOUT_RTCM_3X_TYPE1094_UART1', 0x1)])
 
             # base heading configurations
-            configData.extend([('CFG_MSGOUT_RTCM_3X_TYPE4072_1_UART1', 0x1), ('CFG_MSGOUT_RTCM_3X_TYPE1230_UART1', 0x1), ('CFG_TMODE_MODE', 0x0)])
+            configData.extend([('CFG_MSGOUT_RTCM_3X_TYPE4072_0_UART1', 0x1), ('CFG_MSGOUT_RTCM_3X_TYPE1230_UART1', 0x1), ('CFG_TMODE_MODE', 0x0)])
 
             # pointperfect related configurations
             if self.__use_corrections:
                 configData.extend([('CFG_SPARTN_USE_SOURCE',0), ('CFG_UART1INPROT_SPARTN',1), ('CFG_MSGOUT_UBX_RXM_SPARTN_UART1',1)])
         else:
             # rover related configurations
-            configData.extend([('CFG_UART1INPROT_RTCM3X', 1), ('CFG_MSGOUT_UBX_RXM_RTCM_UART1', 0x1), ('CFG_USBINPROT_RTCM3X', 1)]) 
+            configData.extend([('CFG_UART1INPROT_RTCM3X', 1), ('CFG_MSGOUT_UBX_RXM_RTCM_UART1', 0x1)]) 
         
         # Sets the configs only to RAM. will reset if the antenna is power cycled.
-        ubx: UBXMessage = UBXMessage.config_set(1, 0, configData)
+        ubx: UBXMessage = UBXMessage.config_set(4, 0, configData)
+        self.send(ubx.serialize())
+        ubx = UBXMessage.config_set(1, 0, configData)
         self.send(ubx.serialize())
 
     """
