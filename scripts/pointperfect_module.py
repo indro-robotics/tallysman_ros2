@@ -20,26 +20,25 @@ class PointPerfectConfiguration:
         region: Select based on region of operation.
         configPath: Absolute path to the ucenter-config file downloaded from https://portal.thingstream.io/
     """
-    def __init__(self, region: Literal["us", "kr", "eu", "au"], configPath: str) -> None:
+    def __init__(self, region: Literal["us", "kr", "eu", "au"], config_path: str) -> None:
         self.__region = region
-        self.__config_path = configPath
         self.Host: str = "pp.services.u-blox.com"
         self.Port: int = 8883
-        self.__get_configs_from_file()
+        self.__generate_configs_from_file(config_path)
         pass
     
     """
-        Extracts configurations from PointPerfect configuration file. Config file should be the downloaded ucenter_config_file from https://portal.thingstream.io/. 
+        Extracts configurations from PointPerfect configuration file. Config file <ucenter_config_file> should be the downloaded from https://portal.thingstream.io/. 
     """
-    def __get_configs_from_file(self):
-        with open(self.__config_path) as json_file:
+    def __generate_configs_from_file(self, config_path: str):
+        with open(config_path) as json_file:
             config_json = json.load(json_file)['MQTT']
-            self.KeepAlive = config_json['Connectivity']['KeepAliveInterval']
-            self.ClientId = config_json['Connectivity']['ClientID']
-            self.Topics = self.__get_topics(config_json['Subscriptions'])
-            self.CertFile = self.__generate_cert_file("CERTIFICATE", config_json['Connectivity']['ClientCredentials']["Cert"], "pp_cert.crt")
-            self.CaCert = self.__generate_cert_file("CERTIFICATE", config_json['Connectivity']['ClientCredentials']["RootCA"], "pp_ca_cert.crt")
-            self.KeyFile = self.__generate_cert_file("RSA PRIVATE KEY", config_json['Connectivity']['ClientCredentials']["Key"], "pp_key.pem")   
+            self.keep_alive = config_json['Connectivity']['KeepAliveInterval']
+            self.client_id = config_json['Connectivity']['ClientID']
+            self.topics = self.__get_topics(config_json['Subscriptions'])
+            self.cert_file = self.__generate_cert_file("CERTIFICATE", config_json['Connectivity']['ClientCredentials']["Cert"], "pp_cert.crt")
+            self.ca_cert = self.__generate_cert_file("CERTIFICATE", config_json['Connectivity']['ClientCredentials']["RootCA"], "pp_ca_cert.crt")
+            self.key_file = self.__generate_cert_file("RSA PRIVATE KEY", config_json['Connectivity']['ClientCredentials']["Key"], "pp_key.pem")   
         pass
     
     """
@@ -59,6 +58,7 @@ class PointPerfectConfiguration:
     """
     def __generate_cert_file(self, header: str, contents: str, file_name: str) -> str:
         directory = '/root/humble_ws/src/tallysman_ros2/pointperfect_files'
+        os.makedirs(directory, exist_ok=True)
         with open(os.path.join(directory, file_name), "w") as file:
             lines = []
             pem_prefix = '-----BEGIN {}-----\n'.format(header)
@@ -72,13 +72,13 @@ class PointPerfectConfiguration:
         return os.path.join(directory, file_name)
 
 class PointPerfectModule:
-    def __init__(self, logger, configPath: str, region: str) -> None:
-        self.__pc = PointPerfectConfiguration(region, configPath)
+    def __init__(self, logger, config_path: str, region: str) -> None:
+        self.__pc = PointPerfectConfiguration(region, config_path)
         self.on_correction_message: Event[bytes] = Event()
 
         # Mqtt client initialization.
-        self.__client = mqtt.Client(client_id=self.__pc.ClientId, reconnect_on_failure=False)
-        self.__client.tls_set(ca_certs=self.__pc.CaCert, certfile= self.__pc.CertFile, keyfile= self.__pc.KeyFile)
+        self.__client = mqtt.Client(client_id=self.__pc.client_id, reconnect_on_failure=False)
+        self.__client.tls_set(ca_certs=self.__pc.ca_cert, certfile= self.__pc.cert_file, keyfile= self.__pc.key_file)
 
         self.__client.on_message = self.__on_message
         self.__client.on_disconnect = self.__on_disconnect
@@ -89,6 +89,8 @@ class PointPerfectModule:
         self.logger.setLevel(logging.DEBUG)
         self.__client.enable_logger(logger=self.logger)
 
+        self.__is_active = True
+        
         # Starting a separate pointperfect thread for pointperfect process
         self.__pp_thread = threading.Thread(target=self.__process, name='corrections_thread')
         self.__pp_thread.daemon = True
@@ -135,13 +137,13 @@ class PointPerfectModule:
         Reconnects if the connection is lost.
     """
     def __process(self) -> None:
-        while(rclpy.ok()):
+        while(self.__is_active):
             if(not self.__client.is_connected()):
                 self.logger.info("PointPerfect Reconnecting....")
                 try:
                     self.__connect()
                     # just to make sure connect is completed. need to change this to a better check.
-                    self.__client.subscribe(self.__pc.Topics)
+                    self.__client.subscribe(self.__pc.topics)
                     self.__client.loop_start()
                 except:
                     self.logger.warn("Exception occured in pointperfect module.")
@@ -152,10 +154,19 @@ class PointPerfectModule:
     """
     def __connect(self) -> None:
         pc = self.__pc
-        self.__client.connect(host=pc.Host, port=pc.Port, keepalive=pc.KeepAlive)
+        self.__client.connect(host=pc.Host, port=pc.Port, keepalive=pc.keep_alive)
 
     """
         Disconnects from MQTT client.
     """
     def __disconnect(self) -> None:
         self.__client.disconnect()
+
+    def shutdown(self) -> None:
+        self.__is_active = False
+        self.__disconnect()
+
+    def reconnect(self) -> None:
+        self.shutdown()
+        self.__connect()
+        self.__is_active = True

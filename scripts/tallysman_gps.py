@@ -1,4 +1,8 @@
+import time
+from typing import Literal
 import rclpy
+import sys
+import base64
 from rclpy.node import Node
 from sensor_msgs.msg import NavSatFix
 from std_msgs.msg import ByteMultiArray
@@ -9,66 +13,68 @@ from scripts.pointperfect_module import PointPerfectModule
 from scripts.serial_module import UbloxSerial
 from pynmeagps import NMEAMessage
 from pyrtcm import RTCMMessage, RTCMReader
-from tallysman_ros2_msgs.msg import GnssSignalStatus
+from tallysman_ros2_msgs.msg import GnssSignalStatus, RtcmMessage
 
-class TallysmanGPSPublisher(Node):
-    def __init__(self, args = None) -> None:
-        super().__init__('tallysman_gps_publisher')
-
+class TallysmanGps(Node):
+    def __init__(self, mode:Literal['Disabled', 'Heading_Base', 'Rover']='Disabled') -> None:
+        super().__init__('tallysman_gps')
         #region Parameters declaration
         self.declare_parameter('usb_port','/dev/ttyUSB1')
         self.declare_parameter('baud_rate', 230400)
-        self.declare_parameter('topic_name', 'gps_data')
-        self.declare_parameter('is_base', True) # Parameter {use_corrections} needs to be present if this is True
         self.declare_parameter('use_corrections', True) # Parameter {config_path} needs to be present if this is True.
         self.declare_parameter('region', 'us') # The region where antenna is present. Parameter only needed when use_corrections is True
         self.declare_parameter('config_path', '/root/humble_ws/src/tallysman_ros2/pointperfect_files/ucenter-config.json') # The path where the corrections_config is placed. Parameter only needed when use_corrections is True
-        self.declare_parameter('rtcm_topic_name', 'rtcm_corrections') # This should be unique for a base/rover pair.
         #endregion
 
         #region Parameters Initialization
-        usb_port = self.get_parameter('usb_port').get_parameter_value().string_value
-        baud_rate = self.get_parameter('baud_rate').get_parameter_value().integer_value
-        topic_name = self.get_parameter("topic_name").get_parameter_value().string_value
-        region = self.get_parameter("region").get_parameter_value().string_value
+        self.usb_port = self.get_parameter('usb_port').get_parameter_value().string_value
+        self.baud_rate = self.get_parameter('baud_rate').get_parameter_value().integer_value
         self.use_corrections = self.get_parameter("use_corrections").get_parameter_value().bool_value
-        config_path = self.get_parameter("config_path").get_parameter_value().string_value
-        self.is_base = self.get_parameter("is_base").get_parameter_value().bool_value
-        rtcm_topic_name = self.get_parameter("rtcm_topic_name").get_parameter_value().string_value
+        self.region = self.get_parameter("region").get_parameter_value().string_value
+        self.config_path = self.get_parameter("config_path").get_parameter_value().string_value
+        self.mode : Literal['Disabled', 'Heading_Base', 'Rover'] = mode
+        
         #endregion
 
-        self.ser = UbloxSerial(usb_port, baud_rate, self.get_logger(), self.is_base, self.use_corrections)
+        self.process_thread = threading.Thread(target=self.__process, name='tallysman_gps_process', daemon=True)
+        self.process_thread.start()
+
+        self.ser = UbloxSerial(self.usb_port, self.baud_rate, self.get_logger(), self.mode, self.use_corrections)
 
         #region Conditional attachments to events based on rover/base
-        if self.is_base:
-            self.ser.rtcm_message_found += self.handle_rtcm_message
-            
+        if self.mode == 'Heading_Base':
+            # Publisher to publish RTCM corrections to Rover
+            self.rtcm_publisher = self.create_publisher(RtcmMessage, 'rtcm_corrections', 50)     
+
             # Establishing Pointperfect connection only if it's enabled. Required parameters needs to be sent.
             if self.use_corrections:
-                self.pp = PointPerfectModule(self.get_logger(), config_path, region)
-                self.pp.on_correction_message += self.handle_correction_message       
+                self.pp = PointPerfectModule(self.get_logger(), self.config_path, self.region)
+                self.ser.add_to_poll('RXM', 'RXM-SPARTN-KEY') # this is needed to periodically check for keys and reconnect to pointperfect
+                self.pp.on_correction_message += self.handle_correction_message
+                self.reconnect_timer = self.create_timer(30, self.__reconnect_pointperfect_if_needed)
             
-            # Publisher to publish RTCM corrections to Rover
-            self.rtcm_publisher = self.create_publisher(ByteMultiArray, rtcm_topic_name, 50)     
-        else:
-            self.ser.nmea_message_found += self.handle_nmea_message
-            
+            self.ser.rtcm_message_found += self.handle_rtcm_message
+        elif self.mode == 'Rover':
             # Subscriber for receiving RTCM corrections from base.
-            self.rtcm_subscriber = self.create_subscription(ByteMultiArray, rtcm_topic_name, self.handle_rtcm_message, 50)
+            self.rtcm_subscriber = self.create_subscription(RtcmMessage, 'rtcm_corrections', self.handle_rtcm_message, 50)
             
             # Publisher for location information. Taking location from rover since it is more accurate.
-            self.publisher = self.create_publisher(NavSatFix, topic_name, 50)
-            # Timer to poll status messages from base/rover for every sec.
-            self.status_timer = self.create_timer(1, self.get_status)
+            self.publisher = self.create_publisher(NavSatFix, 'gps_data', 50)
+            
             # Publisher for location information. Taking location from rover since it is more accurate.
             self.status_publisher = self.create_publisher(GnssSignalStatus, 'status', 50)
+            
+            self.ser.nmea_message_found += self.handle_nmea_message
+            
+            # Timer to poll status messages from base/rover for every sec.
+            self.status_timer = self.create_timer(1, self.get_status)
 
         #endregion
 
         self.lock = threading.Lock()
 
         # Timer to poll status messages from base/rover for every sec.
-        self.timer = self.create_timer(1, self.ser.poll_messages)
+        self.timer = self.create_timer(1, self.ser.poll)
 
         pass
 
@@ -107,16 +113,15 @@ class TallysmanGPSPublisher(Node):
         If the antenna is rover, The received RTCM message is from {rtcm_topic_name} topic via ByteMultiArray message and is sent to the antenna through serial port.
     """
     def handle_rtcm_message(self, rtcmMessage) -> None:
-        if self.is_base:
-            msg = ByteMultiArray()
-            convertedList = []
-            for val in list(rtcmMessage.serialize()):
-                convertedList.append(val.to_bytes(1, 'big'))
-            msg.data = UserList(convertedList)
+        if self.mode == 'Heading_Base':
+            msg = RtcmMessage()
+            encoded_msg = base64.b64encode(rtcmMessage.serialize()).decode()
+            msg.identity = rtcmMessage.identity
+            msg.payload = encoded_msg
             self.rtcm_publisher.publish(msg)
             self.get_logger().info('Published RTCM message with identity: ' + rtcmMessage.identity) 
         else:
-            data = b''.join(rtcmMessage.data)
+            data = base64.b64decode(rtcmMessage.payload.encode())
             rmg = RTCMReader.parse(data)
             self.ser.send(rmg.serialize())
             self.get_logger().info('Received RTCM message: ' + rmg.identity)
@@ -126,12 +131,48 @@ class TallysmanGPSPublisher(Node):
         status = self.ser.get_status()
         self.status_publisher.publish(status)
         pass
+    
+    def __process(self) -> None:
+        while(rclpy.ok()):
+            # Checking if the parameter values are changed from start.
 
-def main(args=None):
-    rclpy.init(args=args)
-    tallysman_gps_publisher = TallysmanGPSPublisher(args=args)
-    rclpy.spin(tallysman_gps_publisher)
-    tallysman_gps_publisher.destroy_node()
+            # serial parameters check.
+            if (self.usb_port != self.get_parameter('usb_port').get_parameter_value().string_value) or (self.baud_rate != self.get_parameter('baud_rate').get_parameter_value().integer_value):
+                if self.__reconfig_serial_module():
+                    self.get_logger().info("Port reconfigured")
+                else:
+                    self.get_logger().info("Port not reconfigured")
+            time.sleep(10)
+        pass
+    
+    def __reconfig_serial_module(self) -> bool:
+        self.usb_port = self.get_parameter('usb_port').get_parameter_value().string_value
+        self.baud_rate = self.get_parameter('baud_rate').get_parameter_value().integer_value
+        return self.ser.reconfig_serial_port(self.usb_port, self.baud_rate)
+
+    def __reconfig_pointperfect_module(self) -> bool:
+        self.use_corrections = self.get_parameter("use_corrections").get_parameter_value().bool_value
+        if self.use_corrections:
+            self.pp = PointPerfectModule(self.get_logger(), self.config_path, self.region)
+            self.pp.on_correction_message += self.handle_correction_message  
+        else:
+            self.pp.shutdown()
+            self.pp.on_correction_message -= self.handle_correction_message
+            self.pp = None
+            pass
+    
+    def __reconnect_pointperfect_if_needed(self):
+        if self.use_corrections:
+            sptn_key = self.ser.get_recent_ubx_message('RXM-SPARTN-KEY')
+            if sptn_key is not None and sptn_key.numKeys == 0:
+                self.pp.reconnect()
+        
+def main():
+    rclpy.init()
+    args = rclpy.utilities.remove_ros_args(sys.argv)
+    tallysman_gps = TallysmanGps(mode=args[1])
+    rclpy.spin(tallysman_gps)
+    tallysman_gps.destroy_node()
     rclpy.shutdown()
 
 if __name__ == '__main__':

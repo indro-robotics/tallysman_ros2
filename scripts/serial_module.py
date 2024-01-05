@@ -19,31 +19,40 @@ class UbloxSerial:
         baudrate: The speed at which data is transmitted.
         logger: Logger must contain basic log functions.
     """
-    def __init__(self, port_name: str, baudrate: Literal[1200, 2400, 4800, 9600, 19200, 38400, 57600, 115200, 230400, 460800], logger, is_base, use_corrections):
-        self.__port = serial.Serial(port_name, baudrate)
-        
-        self.__is_base = is_base
-        self.__use_corrections = use_corrections
-
-        # protfilter=7 gives out UBX, NMEA and RTCM messages.
-        self.__ubr = ubxreader.UBXReader(self.__port, protfilter=7)
-
+    def __init__(self, port_name: str, baudrate: Literal[1200, 2400, 4800, 9600, 19200, 38400, 57600, 115200, 230400, 460800], logger, rtk_mode: Literal['Disabled', 'Heading_Base', 'Rover'], use_corrections: bool = False):
         self.__logger = logger if logger else logging.getLogger()
-        
         # Event handlers for Ublox, Nmea and RTCM messages.
         self.ublox_message_found: Event[UBXMessage] = Event() 
         self.nmea_message_found: Event[NMEAMessage] = Event()
         self.rtcm_message_found: Event[RTCMMessage] = Event()
-    
-        # Start a separate thread for reading and parsing serial stream.
-        self.__read_thread = threading.Thread(target=self.__receive_thread, name="receive_thread_"+port_name)
-        self.__read_thread.daemon = True  # Allow the thread to be terminated when the main program exits
-        self.__read_thread.start()
+        self.__rtk_mode = rtk_mode
+        self.__use_corrections = use_corrections
+        self.__configure_serial_port(port_name, baudrate)
+        self.__poll_messages = {('NAV','NAV-HPPOSECEF'), ('NAV', 'NAV-HPPOSLLH'), ('NAV', 'NAV-PVT')}
+        if self.__rtk_mode == 'Rover':
+            self.__poll_messages.add(('NAV', 'NAV-RELPOSNED'))
 
-        # Configurations to antenna to work in a specified mode.
-        self.config()
-        self.__recent_ubx_message = dict[str,(float,UBXMessage)]()
+    def __configure_serial_port(self, port_name: str, baudrate: Literal[1200, 2400, 4800, 9600, 19200, 38400, 57600, 115200, 230400, 460800]) -> None:
+        try:
+            self.__port = serial.Serial(port_name, baudrate)
 
+            # protfilter=7 gives out UBX, NMEA and RTCM messages.
+            self.__ubr = ubxreader.UBXReader(self.__port, protfilter=7)
+            
+            # Start a separate thread for reading and parsing serial stream.
+            self.__read_thread = threading.Thread(target=self.__receive_thread, name="receive_thread_"+port_name, daemon=True)
+            self.__read_thread.start()
+
+            # Configurations to antenna to work in a specified mode.
+            self.__recent_ubx_message = dict[str,(float,UBXMessage)]()
+            self.config()
+            pass
+        except serial.SerialException as se:
+            self.__logger.error(se.strerror)
+            self.__port = None
+            pass
+        except Exception:
+            self.__logger.error('Exception occured in Serial Module.')
         pass
     
     def open(self) -> None:
@@ -56,31 +65,47 @@ class UbloxSerial:
         if self.__port.is_open:
             self.__port.close()
     
+    def reconfig_serial_port(self, port_name: str, baudrate: Literal[1200, 2400, 4800, 9600, 19200, 38400, 57600, 115200, 230400, 460800]) -> bool:
+        try:
+            self.close()
+            self.__ubr = None
+            # Configurations to antenna to work in a specified mode.
+            self.__recent_ubx_message.clear()
+            self.__configure_serial_port(port_name, baudrate)
+        except:
+            self.__logger.error("Exception occured while reconfiguring the port.")
+            return False
+        
+        return True
+
+    # def reconfig_pointperfect_config(self, use_corrections) -> None:
+    #     self.__use_corrections = use_corrections
+    #     self.config()
+
     """
         Reads data from serial port and calls respective message handlers methods.
     """
     def __receive_thread(self) -> None:
-        while(rclpy.ok()):
-            if self.__port.is_open:
-                try:
-                    for (raw_data, parsed_data) in self.__ubr:
-                        if isinstance(parsed_data, NMEAMessage):
-                            self.nmea_message_received(parsed_data)
-                        if isinstance(parsed_data, UBXMessage):
-                            self.ublox_message_received(parsed_data)
-                        if isinstance(parsed_data, RTCMMessage):
-                            self.rtcm_message_received(parsed_data)
-                except :
-                    self.__logger.warn("Exception occured")
-                    raise
-            else:
-                self.open()
-                self.__logger.warn("Reconnecting to port.")
+        if self.__port is not None and self.__port.is_open:
+            try:
+                for (raw_data, parsed_data) in self.__ubr:
+                    if isinstance(parsed_data, NMEAMessage):
+                        self.__nmea_message_received(parsed_data)
+                    if isinstance(parsed_data, UBXMessage):
+                        self.__ublox_message_received(parsed_data)
+                    if isinstance(parsed_data, RTCMMessage):
+                        self.__rtcm_message_received(parsed_data)
+            except:
+                self.__logger.warn("Exception occured")
+                raise
+        # else:
+        #     self.open()
+        #     self.__logger.warn("Reconnecting to port.")
 
     """
         Message handler for Ublox message. Invokes ublox_message_found event.
     """
-    def ublox_message_received(self, message: UBXMessage) -> None:
+    def __ublox_message_received(self, message: UBXMessage) -> None:
         self.__logger.info("[Ublox]: "+ message.identity)
         self.__recent_ubx_message[message.identity] = (time.time(), message)
         self.ublox_message_found(message)
@@ -89,8 +114,8 @@ class UbloxSerial:
     """
         Message handler for Nmea message. Invokes nmea_message_found event.
     """
-    def nmea_message_received(self, message: NMEAMessage) -> None:
-        self.__logger.info("[Nmea]: "+ message.identity)
+    def __nmea_message_received(self, message: NMEAMessage) -> None:
+        #self.__logger.info("[Nmea]: "+ message.identity)
         if message.identity == "GNRMC" or message.identity == "GNGGA":
             self.__latitude = message.lat if message.lat else None
             self.__longitude = message.lon if message.lon else None
@@ -100,7 +125,7 @@ class UbloxSerial:
     """
         Message handler for Rtcm message. Invokes rtcm_message_found event.
     """
-    def rtcm_message_received(self, message: RTCMMessage) -> None:
+    def __rtcm_message_received(self, message: RTCMMessage) -> None:
         self.__logger.info("[RTCM]: "+ message.identity)
         self.rtcm_message_found(message)
         pass
@@ -109,52 +134,58 @@ class UbloxSerial:
         Writes data to port if the port is open. Raises an exception if not.
     """
     def send(self, data: bytes) -> None:
-        if self.__port.is_open:
+        if self.__port is not None and self.__port.is_open:
             self.__port.write(data)
         else:
-            raise Exception("Port not open")
+            self.__logger.error("Port is not configured/open.")
     
     # still need to work on this method
     """
         Polls the respective messages for rover/base to update status.
     """
-    def poll_messages(self):
-        poll_messages = [('NAV','NAV-HPPOSECEF'), ('NAV', 'NAV-HPPOSLLH'), ('NAV', 'NAV-PVT')]
-        if not self.__is_base:
-            poll_messages.append(('NAV', 'NAV-RELPOSNED'))
-
-        for (class_name, msg_name) in poll_messages:
-            ubx = UBXMessage(class_name, msg_name, POLL)
-            self.send(ubx.serialize())
+    def poll(self):
+        if self.__port is not None:
+            for (class_name, msg_name) in self.__poll_messages:
+                ubx = UBXMessage(class_name, msg_name, POLL)
+                self.send(ubx.serialize())
+        else:
+            self.__logger.warn('Port is not configured.')
         pass
     
+    """
+        Adds only if not present.
+    """
+    def add_to_poll(self, class_name: str, msg_name: str)->None:
+        self.__poll_messages.add((class_name, msg_name))
+        pass
+    
+    """
+        Adds only if not present and deletes immediately so it is removed if present or not present from the set. Update if better method is found.
+    """
+    def remove_from_poll(self, class_name: str, msg_name: str)->None:
+        self.__poll_messages.add((class_name, msg_name))
+        self.__poll_messages.remove((class_name, msg_name))
+        pass
+
     """
         Configures the antenna based on parameters.
         Refer ubxtypes_configdb.py at /pyubx2/ubxtypes_configdb.py for equivalent name strings for different keys
     """
-    def config(self):
-        configData: list
-        configData = [('CFG_UART1INPROT_NMEA',1), ('CFG_UART1INPROT_UBX',1), ('CFG_UART1OUTPROT_NMEA',1), ('CFG_UART1OUTPROT_UBX',1)] # common configurations
-        if self.__is_base:
-            # base related configurations
-            configData.extend([('CFG_UART1INPROT_RTCM3X', 0), ('CFG_UART1OUTPROT_RTCM3X', 1), ('CFG_NAVSPG_DYNMODEL', 2)]) 
-            configData.extend([('CFG_MSGOUT_RTCM_3X_TYPE1074_UART1', 0x1), ('CFG_MSGOUT_RTCM_3X_TYPE1084_UART1', 0x1), ('CFG_MSGOUT_RTCM_3X_TYPE1124_UART1', 0x1), ('CFG_MSGOUT_RTCM_3X_TYPE1094_UART1', 0x1)])
-
-            # base heading configurations
-            configData.extend([('CFG_MSGOUT_RTCM_3X_TYPE4072_0_UART1', 0x1), ('CFG_MSGOUT_RTCM_3X_TYPE1230_UART1', 0x1), ('CFG_TMODE_MODE', 0x0)])
-
-            # pointperfect related configurations
-            if self.__use_corrections:
-                configData.extend([('CFG_SPARTN_USE_SOURCE',0), ('CFG_UART1INPROT_SPARTN',1), ('CFG_MSGOUT_UBX_RXM_SPARTN_UART1',1)])
-        else:
-            # rover related configurations
-            configData.extend([('CFG_UART1INPROT_RTCM3X', 1), ('CFG_MSGOUT_UBX_RXM_RTCM_UART1', 0x1)]) 
+    def config(self) -> bool:
+        
+        config_successful = False
+        config_data = self.__get_config_set(mode_of_operation=self.__rtk_mode, use_corrections=self.__use_corrections)
         
         # Sets the configs only to RAM. will reset if the antenna is power cycled.
-        ubx: UBXMessage = UBXMessage.config_set(4, 0, configData)
-        self.send(ubx.serialize())
-        ubx = UBXMessage.config_set(1, 0, configData)
-        self.send(ubx.serialize())
+        ubx: UBXMessage = UBXMessage.config_set(1, 0, config_data)
+        
+        while(not config_successful):
+            self.send(ubx.serialize())
+            time.sleep(0.5) # delay to make sure antenna response is logged before another attempt.
+            if self.get_recent_ubx_message('ACK-ACK') is not None:
+                config_successful = True
+            
+        return config_successful
 
     """
         returns the Rover/Base status. Currently returning only Rover status. Will improve this further.
@@ -163,7 +194,6 @@ class UbloxSerial:
         gnss_status = GnssSignalStatus()
         loc = GnssLocation()
         try:
-            
             t = Time()
             t.sec = int(time.time())
             loc.time = t
@@ -176,8 +206,8 @@ class UbloxSerial:
             gnss_status.gnss_location = loc
             nav_hpposllh = self.get_recent_ubx_message('NAV-HPPOSLLH')
             nav_pvt = self.get_recent_ubx_message('NAV-PVT')
-            nav_hpposecef = self.get_recent_ubx_message('NAV-HPPOSECEF')
             nav_relposned = self.get_recent_ubx_message('NAV-RELPOSNED')
+            nav_hpposecef = self.get_recent_ubx_message('NAV-HPPOSECEF')
             rxm_rtcm = self.get_recent_ubx_message('RXM-RTCM')
             #gnss_status.header.time.sec = int(time.time())
             if nav_relposned is not None:
@@ -195,7 +225,7 @@ class UbloxSerial:
         return gnss_status
 
     """
-        returns a Ubx message only if it arrived in less than 10sec
+        returns a Ubx message only if it arrived in the last 10sec.
     """
     def get_recent_ubx_message(self, msgId) -> UBXMessage:
         try:
@@ -239,3 +269,28 @@ class UbloxSerial:
             quality += '/Fixed'
 
         return quality
+    
+    def __get_config_set(self, mode_of_operation: Literal['Disabled', 'Heading_Base', 'Rover'], use_corrections: bool = False) -> list :
+        # Common configuration. Enabling Nmea, Ubx messages for both input and output.
+        config_data = [('CFG_UART1INPROT_NMEA',1), ('CFG_UART1INPROT_UBX',1), ('CFG_UART1OUTPROT_NMEA',1), ('CFG_UART1OUTPROT_UBX',1)]
+
+        if mode_of_operation == 'Disabled':
+            # No configuration is required apart from common configuration.
+            pass
+        elif mode_of_operation == 'Heading_Base':
+            # Enabling output RTCM and disabling input RTCM
+            config_data.extend([('CFG_UART1INPROT_RTCM3X', 0), ('CFG_UART1OUTPROT_RTCM3X', 1), ('CFG_NAVSPG_DYNMODEL', 2)]) 
+
+            # Common RTCM message types for Base (1074, 1084, 1094, 1124).
+            config_data.extend([('CFG_MSGOUT_RTCM_3X_TYPE1074_UART1', 0x1), ('CFG_MSGOUT_RTCM_3X_TYPE1084_UART1', 0x1), ('CFG_MSGOUT_RTCM_3X_TYPE1124_UART1', 0x1), ('CFG_MSGOUT_RTCM_3X_TYPE1094_UART1', 0x1)])
+
+            # 4072.0, 1230 is Enabled for Heading_Base. Also, TimeMode is set to disabled.
+            config_data.extend([('CFG_MSGOUT_RTCM_3X_TYPE4072_0_UART1', 0x1), ('CFG_MSGOUT_RTCM_3X_TYPE1230_UART1', 0x1), ('CFG_TMODE_MODE', 0x0)])
+        elif mode_of_operation == 'Rover':
+            # rover related configurations
+            config_data.extend([('CFG_UART1INPROT_RTCM3X', 1), ('CFG_MSGOUT_UBX_RXM_RTCM_UART1', 0x1)]) 
+
+        if use_corrections:
+            config_data.extend([('CFG_SPARTN_USE_SOURCE',0), ('CFG_UART1INPROT_SPARTN',1), ('CFG_MSGOUT_UBX_RXM_SPARTN_UART1',1)])
+            
+        return config_data
