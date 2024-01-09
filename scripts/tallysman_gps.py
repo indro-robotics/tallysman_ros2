@@ -13,7 +13,7 @@ from scripts.pointperfect_module import PointPerfectModule
 from scripts.serial_module import UbloxSerial
 from pynmeagps import NMEAMessage
 from pyrtcm import RTCMMessage, RTCMReader
-from tallysman_ros2_msgs.msg import GnssSignalStatus, RtcmMessage
+from tallysman_msg.msg import GnssSignalStatus, RtcmMessage
 
 class TallysmanGps(Node):
     def __init__(self, mode:Literal['Disabled', 'Heading_Base', 'Rover']='Disabled') -> None:
@@ -59,10 +59,10 @@ class TallysmanGps(Node):
             self.rtcm_subscriber = self.create_subscription(RtcmMessage, 'rtcm_corrections', self.handle_rtcm_message, 50)
             
             # Publisher for location information. Taking location from rover since it is more accurate.
-            self.publisher = self.create_publisher(NavSatFix, 'gps_data', 50)
+            self.publisher = self.create_publisher(NavSatFix, 'gps', 50)
             
             # Publisher for location information. Taking location from rover since it is more accurate.
-            self.status_publisher = self.create_publisher(GnssSignalStatus, 'status', 50)
+            self.status_publisher = self.create_publisher(GnssSignalStatus, 'gps_extended', 50)
             
             self.ser.nmea_message_found += self.handle_nmea_message
             
@@ -135,9 +135,9 @@ class TallysmanGps(Node):
     def __process(self) -> None:
         while(rclpy.ok()):
             # Checking if the parameter values are changed from start.
-
             # serial parameters check.
             if (self.usb_port != self.get_parameter('usb_port').get_parameter_value().string_value) or (self.baud_rate != self.get_parameter('baud_rate').get_parameter_value().integer_value):
+                self.get_logger().warn("Parameters Updated. Port:"+ self.usb_port + ", Baud Rate: " + str(self.baud_rate))
                 if self.__reconfig_serial_module():
                     self.get_logger().info("Port reconfigured")
                 else:

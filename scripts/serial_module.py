@@ -8,7 +8,7 @@ import rclpy
 from pyubx2 import ubxreader, UBXMessage, GET, SET, POLL
 from pynmeagps import NMEAMessage
 from pyrtcm import RTCMMessage
-from tallysman_ros2_msgs.msg import GnssSignalStatus, GnssLocation
+from tallysman_msg.msg import GnssSignalStatus, GnssLocation
 from builtin_interfaces.msg import Time
 
 class UbloxSerial:
@@ -25,26 +25,49 @@ class UbloxSerial:
         self.ublox_message_found: Event[UBXMessage] = Event() 
         self.nmea_message_found: Event[NMEAMessage] = Event()
         self.rtcm_message_found: Event[RTCMMessage] = Event()
+        self.__is_running = True
         self.__rtk_mode = rtk_mode
         self.__use_corrections = use_corrections
-        self.__configure_serial_port(port_name, baudrate)
+        self.__recent_ubx_message = dict[str,(float,UBXMessage)]()
+        self.port_name = port_name
+        self.baudrate = baudrate
+        self.__setup_serial_port_and_reader(port_name, baudrate)
         self.__poll_messages = {('NAV','NAV-HPPOSECEF'), ('NAV', 'NAV-HPPOSLLH'), ('NAV', 'NAV-PVT')}
         if self.__rtk_mode == 'Rover':
             self.__poll_messages.add(('NAV', 'NAV-RELPOSNED'))
+        self.__process =  threading.Thread(target=self.__serial_process, name="serial_process_thread", daemon=True)
+        self.__process.start()
 
-    def __configure_serial_port(self, port_name: str, baudrate: Literal[1200, 2400, 4800, 9600, 19200, 38400, 57600, 115200, 230400, 460800]) -> None:
+    def __serial_process(self) -> None:
+        while(rclpy.ok()):
+            if self.__is_running:
+                if self.__port is not None and self.__port.is_open:
+                    if self.__read_thread is not None and self.__read_thread.is_alive():
+                        time.sleep(1)
+                        continue
+                    else:
+                        self.__read_thread = threading.Thread(target=self.__receive_thread, name="receive_thread_"+self.__port.name, daemon=True)
+                        self.__read_thread.start()
+                else:
+                    # if self.__port is None:
+                    #     self.__port = serial.Serial(self.port_name, self.baudrate)
+                    if self.__port is not None and not self.__port.is_open:
+                        self.__port.open()
+            else:
+                time.sleep(1)
+
+    def __setup_serial_port_and_reader(self, port_name: str, baudrate: Literal[1200, 2400, 4800, 9600, 19200, 38400, 57600, 115200, 230400, 460800]) -> None:
         try:
             self.__port = serial.Serial(port_name, baudrate)
 
             # protfilter=7 gives out UBX, NMEA and RTCM messages.
             self.__ubr = ubxreader.UBXReader(self.__port, protfilter=7)
-            
+            self.__is_running = True
             # Start a separate thread for reading and parsing serial stream.
             self.__read_thread = threading.Thread(target=self.__receive_thread, name="receive_thread_"+port_name, daemon=True)
             self.__read_thread.start()
 
             # Configurations to antenna to work in a specified mode.
-            self.__recent_ubx_message = dict[str,(float,UBXMessage)]()
             self.config()
             pass
         except serial.SerialException as se:
@@ -56,13 +79,13 @@ class UbloxSerial:
         pass
     
     def open(self) -> None:
-        if self.__port.is_open:
+        if self.__port is not None and self.__port.is_open:
             pass
         else:
             self.__port.open()
 
     def close(self) -> None:
-        if self.__port.is_open:
+        if self.__port is not None and self.__port.is_open:
             self.__port.close()
     
     def reconfig_serial_port(self, port_name: str, baudrate: Literal[1200, 2400, 4800, 9600, 19200, 38400, 57600, 115200, 230400, 460800]) -> bool:
@@ -71,7 +94,8 @@ class UbloxSerial:
             self.__ubr = None
             # Configurations to antenna to work in a specified mode.
             self.__recent_ubx_message.clear()
-            self.__configure_serial_port(port_name, baudrate)
+            self.__is_running = False
+            self.__setup_serial_port_and_reader(port_name, baudrate)
         except:
             self.__logger.error("Exception occured while reconfiguring the port.")
             return False
@@ -86,21 +110,25 @@ class UbloxSerial:
         Reads data from serial port and calls respective message handlers methods.
     """
     def __receive_thread(self) -> None:
-        if self.__port is not None and self.__port.is_open:
-            try:
-                for (raw_data, parsed_data) in self.__ubr:
-                    if isinstance(parsed_data, NMEAMessage):
-                        self.__nmea_message_received(parsed_data)
-                    if isinstance(parsed_data, UBXMessage):
-                        self.__ublox_message_received(parsed_data)
-                    if isinstance(parsed_data, RTCMMessage):
-                        self.__rtcm_message_received(parsed_data)
-            except:
-                self.__logger.warn("Exception occured")
-                raise
-        # else:
-        #     self.open()
-        #     self.__logger.warn("Reconnecting to port.")
+        while(rclpy.ok()):
+            if self.__is_running:
+                if self.__port is not None and self.__port.is_open:
+                    try:
+                        (raw_data, parsed_data) = self.__ubr.read()
+                        if isinstance(parsed_data, NMEAMessage):
+                            self.__nmea_message_received(parsed_data)
+                        if isinstance(parsed_data, UBXMessage):
+                            self.__ublox_message_received(parsed_data)
+                        if isinstance(parsed_data, RTCMMessage):
+                            self.__rtcm_message_received(parsed_data)
+                    except:
+                        self.__logger.warn("Unable to read from port")
+                        break
+                        # self.__is_running = False
+                else:
+                    self.__logger.warn("Port is not configured/open.")
+            else:    
+                break
 
     """
         Message handler for Ublox message. Invokes ublox_message_found event.
@@ -134,10 +162,13 @@ class UbloxSerial:
         Writes data to port if the port is open. Raises an exception if not.
     """
     def send(self, data: bytes) -> None:
-        if self.__port is not None and self.__port.is_open:
-            self.__port.write(data)
-        else:
-            self.__logger.error("Port is not configured/open.")
+        try:
+            if self.__port is not None and self.__port.is_open:
+                self.__port.write(data)
+            else:
+                self.__logger.error("Port is not configured/open.")
+        except Exception:
+            pass
     
     # still need to work on this method
     """
@@ -192,18 +223,18 @@ class UbloxSerial:
     """
     def get_status(self) -> GnssSignalStatus :
         gnss_status = GnssSignalStatus()
-        loc = GnssLocation()
+        # loc = GnssLocation()
         try:
-            t = Time()
-            t.sec = int(time.time())
-            loc.time = t
+            # t = Time()
+            # t.sec = int(time.time())
+            # loc.time = t
             if self.__latitude is not None and self.__longitude is not None:
-                loc.latitude = float(self.__latitude) 
-                loc.longitude = float(self.__longitude)
-                loc.valid_fix = True
+                gnss_status.latitude = float(self.__latitude) 
+                gnss_status.longitude = float(self.__longitude)
+                gnss_status.valid_fix = True
             else:
-                loc.valid_fix = False
-            gnss_status.gnss_location = loc
+                gnss_status.valid_fix = False
+            # gnss_status.gnss_location = loc
             nav_hpposllh = self.get_recent_ubx_message('NAV-HPPOSLLH')
             nav_pvt = self.get_recent_ubx_message('NAV-PVT')
             nav_relposned = self.get_recent_ubx_message('NAV-RELPOSNED')

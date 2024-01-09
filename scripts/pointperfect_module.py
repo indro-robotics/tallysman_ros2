@@ -85,17 +85,12 @@ class PointPerfectModule:
         self.__client.on_connect = self.__on_connect
 
         # Still need to work on logging. Ignore below lines
-        self.logger : logging.Logger = logging.getLogger()
-        self.logger.setLevel(logging.DEBUG)
-        self.__client.enable_logger(logger=self.logger)
+        self.logger = logger
+        # self.logger.setLevel(logging.DEBUG)
+        # self.__client.enable_logger(logger=self.logger)
 
-        self.__is_active = True
-        
-        # Starting a separate pointperfect thread for pointperfect process
-        self.__pp_thread = threading.Thread(target=self.__process, name='corrections_thread')
-        self.__pp_thread.daemon = True
-        self.__pp_thread.start()
-        
+        self.__is_active = True        
+        self.__connect()
         pass
     
     """
@@ -137,29 +132,33 @@ class PointPerfectModule:
         Reconnects if the connection is lost.
     """
     def __process(self) -> None:
-        while(self.__is_active):
+        while(rclpy.ok() and self.__is_active):
             if(not self.__client.is_connected()):
                 self.logger.info("PointPerfect Reconnecting....")
                 try:
-                    self.__connect()
-                    # just to make sure connect is completed. need to change this to a better check.
+                    pc = self.__pc
+                    self.__client.connect(host=pc.Host, port=pc.Port, keepalive=pc.keep_alive)
                     self.__client.subscribe(self.__pc.topics)
                     self.__client.loop_start()
                 except:
                     self.logger.warn("Exception occured in pointperfect module.")
-            time.sleep(0.5)
+            time.sleep(1)
 
     """
         Connects to MQTT client.
     """
     def __connect(self) -> None:
-        pc = self.__pc
-        self.__client.connect(host=pc.Host, port=pc.Port, keepalive=pc.keep_alive)
+        # Starting a separate pointperfect thread for pointperfect process
+        self.__pp_thread = threading.Thread(target=self.__process, name='corrections_thread', daemon=True)
+        self.__is_active = True
+        self.__pp_thread.start()
 
     """
         Disconnects from MQTT client.
     """
     def __disconnect(self) -> None:
+        self.__pp_thread = None
+        self.__client.loop_stop()
         self.__client.disconnect()
 
     def shutdown(self) -> None:
@@ -168,5 +167,6 @@ class PointPerfectModule:
 
     def reconnect(self) -> None:
         self.shutdown()
+        time.sleep(2)
         self.__connect()
         self.__is_active = True
