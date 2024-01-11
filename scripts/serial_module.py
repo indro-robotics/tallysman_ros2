@@ -29,53 +29,76 @@ class UbloxSerial:
         self.__rtk_mode = rtk_mode
         self.__use_corrections = use_corrections
         self.__recent_ubx_message = dict[str,(float,UBXMessage)]()
-        self.port_name = port_name
-        self.baudrate = baudrate
         self.__setup_serial_port_and_reader(port_name, baudrate)
-        self.__poll_messages = {('NAV','NAV-HPPOSECEF'), ('NAV', 'NAV-HPPOSLLH'), ('NAV', 'NAV-PVT')}
+        self.runTime = 0
+        self.__poll_messages = {('NAV','NAV-HPPOSECEF'), ('NAV', 'NAV-HPPOSLLH'), ('NAV', 'NAV-PVT'), ('MON', 'MON-SYS')}
         if self.__rtk_mode == 'Rover':
             self.__poll_messages.add(('NAV', 'NAV-RELPOSNED'))
         self.__process =  threading.Thread(target=self.__serial_process, name="serial_process_thread", daemon=True)
         self.__process.start()
 
+    """
+        This is continuosly running loop to make sure everything is working fine in serial module.
+
+        This will restart the receive thread if by any case it stops due to exception.
+        This will also detect if the antenna is rebooted and does the configuration to the antenna again.
+    """
     def __serial_process(self) -> None:
         while(rclpy.ok()):
             if self.__is_running:
                 if self.__port is not None and self.__port.is_open:
                     if self.__read_thread is not None and self.__read_thread.is_alive():
-                        time.sleep(1)
-                        continue
+                        pass
                     else:
                         self.__read_thread = threading.Thread(target=self.__receive_thread, name="receive_thread_"+self.__port.name, daemon=True)
                         self.__read_thread.start()
+
+                    if not self.__config_status:
+                        self.__setup_serial_port_and_reader(self.port_name, self.baudrate)
                 else:
                     # if self.__port is None:
                     #     self.__port = serial.Serial(self.port_name, self.baudrate)
                     if self.__port is not None and not self.__port.is_open:
                         self.__port.open()
-            else:
-                time.sleep(1)
 
+                monSys = self.get_recent_ubx_message('MON-SYS')
+                if monSys is not None:
+                    if self.runTime <= monSys.runTime:
+                        self.runTime = monSys.runTime
+                    else:
+                        # self.__logger.warn("Antenna rebooted. Reconfiguring the antenna")
+                        # self.__save_boot_times(self.runTime)
+                        self.runTime = 0
+                        self.config()
+                
+            time.sleep(1)
+
+    """
+        This method is responsible for setting up the serial port based on port_name and baudrate. It also starts a receive_thread specific to port_name serial port and configures a reader to parse the data
+    """
     def __setup_serial_port_and_reader(self, port_name: str, baudrate: Literal[1200, 2400, 4800, 9600, 19200, 38400, 57600, 115200, 230400, 460800]) -> None:
         try:
             self.__port = serial.Serial(port_name, baudrate)
-
+            self.port_name = port_name
+            self.baudrate = baudrate
             # protfilter=7 gives out UBX, NMEA and RTCM messages.
             self.__ubr = ubxreader.UBXReader(self.__port, protfilter=7)
-            self.__is_running = True
+            
             # Start a separate thread for reading and parsing serial stream.
             self.__read_thread = threading.Thread(target=self.__receive_thread, name="receive_thread_"+port_name, daemon=True)
             self.__read_thread.start()
-
+            self.__is_running = True
             # Configurations to antenna to work in a specified mode.
             self.config()
             pass
         except serial.SerialException as se:
-            self.__logger.error(se.strerror)
+            self.__logger.error("[Serial]: " + se.strerror)
             self.__port = None
+            self.__is_running = False
             pass
         except Exception:
-            self.__logger.error('Exception occured in Serial Module.')
+            self.__logger.error('[Serial]: Exception occured while setting up the Serial Module.')
+            self.__is_running = False
         pass
     
     def open(self) -> None:
@@ -86,8 +109,12 @@ class UbloxSerial:
 
     def close(self) -> None:
         if self.__port is not None and self.__port.is_open:
+            self.__is_running = False
             self.__port.close()
     
+    """
+        This method is intended to reconfigure the serial port. This should only be used if the dynamic parameters like port_name or baudrate are changed after initialization.
+    """
     def reconfig_serial_port(self, port_name: str, baudrate: Literal[1200, 2400, 4800, 9600, 19200, 38400, 57600, 115200, 230400, 460800]) -> bool:
         try:
             self.close()
@@ -97,7 +124,8 @@ class UbloxSerial:
             self.__is_running = False
             self.__setup_serial_port_and_reader(port_name, baudrate)
         except:
-            self.__logger.error("Exception occured while reconfiguring the port.")
+            self.__logger.error("[Serial]: Exception occured while reconfiguring the port.")
+            self.__is_running = False
             return False
         
         return True
@@ -117,24 +145,24 @@ class UbloxSerial:
                         (raw_data, parsed_data) = self.__ubr.read()
                         if isinstance(parsed_data, NMEAMessage):
                             self.__nmea_message_received(parsed_data)
-                        if isinstance(parsed_data, UBXMessage):
+                        elif isinstance(parsed_data, UBXMessage):
                             self.__ublox_message_received(parsed_data)
-                        if isinstance(parsed_data, RTCMMessage):
+                        elif isinstance(parsed_data, RTCMMessage):
                             self.__rtcm_message_received(parsed_data)
                     except:
-                        self.__logger.warn("Unable to read from port")
+                        self.__logger.warn("[Serial]: Port is open but unable to read from port.")
                         break
-                        # self.__is_running = False
                 else:
-                    self.__logger.warn("Port is not configured/open.")
-            else:    
+                    self.__logger.warn("[Serial]: Port is not configured/open.")
+                    break
+            else:
                 break
 
     """
         Message handler for Ublox message. Invokes ublox_message_found event.
     """
     def __ublox_message_received(self, message: UBXMessage) -> None:
-        self.__logger.info("[Ublox]: "+ message.identity)
+        # self.__logger.info("[Ublox]: "+ message.identity)
         self.__recent_ubx_message[message.identity] = (time.time(), message)
         self.ublox_message_found(message)
         pass
@@ -154,7 +182,7 @@ class UbloxSerial:
         Message handler for Rtcm message. Invokes rtcm_message_found event.
     """
     def __rtcm_message_received(self, message: RTCMMessage) -> None:
-        self.__logger.info("[RTCM]: "+ message.identity)
+        # self.__logger.info("[RTCM]: "+ message.identity)
         self.rtcm_message_found(message)
         pass
     
@@ -166,7 +194,7 @@ class UbloxSerial:
             if self.__port is not None and self.__port.is_open:
                 self.__port.write(data)
             else:
-                self.__logger.error("Port is not configured/open.")
+                self.__logger.warn("[Serial]: Port is not configured/open.")
         except Exception:
             pass
     
@@ -180,7 +208,7 @@ class UbloxSerial:
                 ubx = UBXMessage(class_name, msg_name, POLL)
                 self.send(ubx.serialize())
         else:
-            self.__logger.warn('Port is not configured.')
+            self.__logger.warn('[Serial]: Port is not configured/open.')
         pass
     
     """
@@ -199,23 +227,26 @@ class UbloxSerial:
         pass
 
     """
-        Configures the antenna based on parameters.
+        Configures the antenna based on parameters. Retries the config for 3times before throwing the error.
         Refer ubxtypes_configdb.py at /pyubx2/ubxtypes_configdb.py for equivalent name strings for different keys
     """
     def config(self) -> bool:
-        
         config_successful = False
         config_data = self.__get_config_set(mode_of_operation=self.__rtk_mode, use_corrections=self.__use_corrections)
         
         # Sets the configs only to RAM. will reset if the antenna is power cycled.
         ubx: UBXMessage = UBXMessage.config_set(1, 0, config_data)
-        
-        while(not config_successful):
+        retry_count = 0
+        while(not config_successful and retry_count < 3):
             self.send(ubx.serialize())
             time.sleep(0.5) # delay to make sure antenna response is logged before another attempt.
             if self.get_recent_ubx_message('ACK-ACK') is not None:
                 config_successful = True
-            
+            retry_count = retry_count + 1
+        
+        self.__config_status = config_successful
+        if not self.__config_status:
+            self.__logger.error("[Serial]: Configuration failed.")
         return config_successful
 
     """
@@ -325,3 +356,7 @@ class UbloxSerial:
             config_data.extend([('CFG_SPARTN_USE_SOURCE',0), ('CFG_UART1INPROT_SPARTN',1), ('CFG_MSGOUT_UBX_RXM_SPARTN_UART1',1)])
             
         return config_data
+    
+    def __save_boot_times(self, time_in_sec: int):
+        with open(self.__rtk_mode + '_boot_times.txt', 'a') as log_file:
+            log_file.write("\nAntenna Rebooted after sec: " + str(time_in_sec))

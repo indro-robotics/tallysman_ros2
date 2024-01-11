@@ -29,7 +29,7 @@ def generate_launch_description():
             emulate_tty=True,
             parameters=[
                 {'baud_rate': 230400},
-                {'usb_port':'/dev/Tallysman_USB1'},
+                {'usb_port':'/dev/Tallysman_USB3'},
                 {'use_corrections': True},
                 {'config_path': '/root/humble_ws/src/tallysman_ros2/pointperfect_files/ucenter-config.json'},
                 {'region': 'us'},
@@ -49,7 +49,7 @@ def generate_launch_description():
             emulate_tty=True,
             parameters=[
                 {'baud_rate': 230400},
-                {'usb_port':'/dev/Tallysman_USB3'},
+                {'usb_port':'/dev/Tallysman_USB1'},
                 {'use_corrections': False},
             ],
             namespace='tallysman',

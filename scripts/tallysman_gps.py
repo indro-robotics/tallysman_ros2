@@ -132,12 +132,15 @@ class TallysmanGps(Node):
         self.status_publisher.publish(status)
         pass
     
+    """
+        This is a continuous loop to check for any parameter updates in runtime.
+    """
     def __process(self) -> None:
         while(rclpy.ok()):
             # Checking if the parameter values are changed from start.
             # serial parameters check.
             if (self.usb_port != self.get_parameter('usb_port').get_parameter_value().string_value) or (self.baud_rate != self.get_parameter('baud_rate').get_parameter_value().integer_value):
-                self.get_logger().warn("Parameters Updated. Port:"+ self.usb_port + ", Baud Rate: " + str(self.baud_rate))
+                self.get_logger().warn("Parameters Updated. Port:"+ self.get_parameter('usb_port').get_parameter_value().string_value + ", Baud Rate: " + str(self.get_parameter('baud_rate').get_parameter_value().integer_value))
                 if self.__reconfig_serial_module():
                     self.get_logger().info("Port reconfigured")
                 else:
@@ -145,6 +148,9 @@ class TallysmanGps(Node):
             time.sleep(10)
         pass
     
+    """
+        This method is called when serial parameters are changed in runtime. Serial module is reconfigured.
+    """
     def __reconfig_serial_module(self) -> bool:
         self.usb_port = self.get_parameter('usb_port').get_parameter_value().string_value
         self.baud_rate = self.get_parameter('baud_rate').get_parameter_value().integer_value
@@ -161,11 +167,15 @@ class TallysmanGps(Node):
             self.pp = None
             pass
     
+    """
+        Spartn keys are checked in the antenna. if no keys are present, pointperfect is reconnected to get a new pair of keys.
+    """
     def __reconnect_pointperfect_if_needed(self):
         if self.use_corrections:
             sptn_key = self.ser.get_recent_ubx_message('RXM-SPARTN-KEY')
             if sptn_key is not None and sptn_key.numKeys == 0:
                 self.pp.reconnect()
+                pass
         
 def main():
     rclpy.init()

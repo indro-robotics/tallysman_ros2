@@ -77,7 +77,7 @@ class PointPerfectModule:
         self.on_correction_message: Event[bytes] = Event()
 
         # Mqtt client initialization.
-        self.__client = mqtt.Client(client_id=self.__pc.client_id, reconnect_on_failure=False)
+        self.__client = mqtt.Client(client_id=self.__pc.client_id, reconnect_on_failure=True, clean_session=True)
         self.__client.tls_set(ca_certs=self.__pc.ca_cert, certfile= self.__pc.cert_file, keyfile= self.__pc.key_file)
 
         self.__client.on_message = self.__on_message
@@ -85,7 +85,7 @@ class PointPerfectModule:
         self.__client.on_connect = self.__on_connect
 
         # Still need to work on logging. Ignore below lines
-        self.logger = logger
+        self.__logger = logger
         # self.logger.setLevel(logging.DEBUG)
         # self.__client.enable_logger(logger=self.logger)
 
@@ -97,8 +97,8 @@ class PointPerfectModule:
         Default callback for incoming message received from MQTT connection. Invokes on_correction_message event
     """
     def __on_message(self, client, userdata, message) -> None:
-        self.logger.info("Received message '" + str(message.payload) + "' on topic '"
-            + message.topic + "' with QoS " + str(message.qos))
+        # self.__logger.info("Received message '" + str(message.payload) + "' on topic '"
+        #     + message.topic + "' with QoS " + str(message.qos))
         self.on_correction_message(message.payload)
 
     """
@@ -107,66 +107,81 @@ class PointPerfectModule:
     def __get_connection_message(self, rc: int) -> str:
         if rc == 0:
             return "Connection successful."
-        elif rc == 6:
+        elif rc == 1:
+            return "Connection refused - incorrect protocol version."
+        elif rc == 2:
+            return "Connection refused - invalid client identifier."
+        elif rc == 3:
+            return "Connection refused - server unavailable."
+        elif rc == 4:
+            return "Connection refused - bad username or password."
+        elif rc == 5:
+            return "Connection refused - not authorised."
+        elif rc >= 6:
             return "Currently Unused."
-        else:
-            return "Connection refused."
 
     """
         Callback for MQTT disconnect.
     """
     def __on_disconnect(self, client, userdata, rc) -> None:
         if rc != 0:
-            self.logger.warn("Unexpected disconnection.")
+            self.__logger.warn("[PointPerfect]: Unexpected disconnection." + self.__get_connection_message(rc) +". Trying to reconnect..")
+            self.__client.reconnect()
 
     """
-        Callback for MQTT connect.
+        Callback for MQTT connect. subscribe to topics after connect.
     """
     def __on_connect(self, client, userdata, flags, rc) -> None:
-        self.logger.info("Connection returned result: " + self.__get_connection_message(rc))
+        self.__logger.info("[PointPerfect]: Connection returned result: " + self.__get_connection_message(rc))
+        self.__client.subscribe(self.__pc.topics)
 
     """
+        Seems like this can be done at other places more efficiently...Need to get back to this later.
+        
         This should run only once for instance.
         
         Attemps the MQTT connection and Subscribes to topics.
         Reconnects if the connection is lost.
     """
-    def __process(self) -> None:
-        while(rclpy.ok() and self.__is_active):
-            if(not self.__client.is_connected()):
-                self.logger.info("PointPerfect Reconnecting....")
-                try:
-                    pc = self.__pc
-                    self.__client.connect(host=pc.Host, port=pc.Port, keepalive=pc.keep_alive)
-                    self.__client.subscribe(self.__pc.topics)
-                    self.__client.loop_start()
-                except:
-                    self.logger.warn("Exception occured in pointperfect module.")
-            time.sleep(1)
+    # def __process(self) -> None:
+    #     while(rclpy.ok() and self.__is_active):
+    #         if(not self.__client.is_connected()):
+    #             self.__logger.info("PointPerfect Reconnecting....")
+    #             try:
+    #                 pc = self.__pc
+    #                 self.__client.connect(host=pc.Host, port=pc.Port, keepalive=pc.keep_alive)
+    #                 self.__client.subscribe(self.__pc.topics)
+    #                 self.__client.loop_start()
+    #             except:
+    #                 self.__logger.warn("Exception occured in pointperfect module.")
+    #         time.sleep(1)
 
     """
         Connects to MQTT client.
     """
     def __connect(self) -> None:
         # Starting a separate pointperfect thread for pointperfect process
-        self.__pp_thread = threading.Thread(target=self.__process, name='corrections_thread', daemon=True)
-        self.__is_active = True
-        self.__pp_thread.start()
+        # self.__pp_thread = threading.Thread(target=self.__process, name='corrections_thread', daemon=True)
+        # self.__is_active = True
+        # self.__pp_thread.start()
+        try:
+            pc = self.__pc
+            self.__client.connect(host=pc.Host, port=pc.Port, keepalive=pc.keep_alive)
+            # self.__client.subscribe(self.__pc.topics)
+            self.__client.loop_start()
+        except:
+            self.__logger.error("[PointPerfect]: Exception occured while connecting to PointPerfect client")
 
     """
         Disconnects from MQTT client.
     """
     def __disconnect(self) -> None:
-        self.__pp_thread = None
+        # self.__pp_thread = None
         self.__client.loop_stop()
         self.__client.disconnect()
 
-    def shutdown(self) -> None:
-        self.__is_active = False
-        self.__disconnect()
-
     def reconnect(self) -> None:
-        self.shutdown()
-        time.sleep(2)
-        self.__connect()
-        self.__is_active = True
+        try:
+            self.__client.reconnect()
+        except Exception as ex:
+            self.__logger.error("[PointPerfect]: Exception occured while reconnecting to PointPerfect client")
