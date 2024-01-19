@@ -10,6 +10,7 @@ from pynmeagps import NMEAMessage
 from pyrtcm import RTCMMessage
 from tallysman_msg.msg import GnssSignalStatus, GnssLocation
 from builtin_interfaces.msg import Time
+from scripts.logging import SimplifiedLogger
 
 class UbloxSerial:
     """
@@ -19,8 +20,8 @@ class UbloxSerial:
         baudrate: The speed at which data is transmitted.
         logger: Logger must contain basic log functions.
     """
-    def __init__(self, port_name: str, baudrate: Literal[1200, 2400, 4800, 9600, 19200, 38400, 57600, 115200, 230400, 460800], logger, rtk_mode: Literal['Disabled', 'Heading_Base', 'Rover'], use_corrections: bool = False):
-        self.__logger = logger if logger else logging.getLogger()
+    def __init__(self, port_name: str, baudrate: Literal[1200, 2400, 4800, 9600, 19200, 38400, 57600, 115200, 230400, 460800], rtk_mode: Literal['Disabled', 'Heading_Base', 'Rover'], use_corrections: bool = False):
+        self.logger = SimplifiedLogger(rtk_mode+'_Serial')
         # Event handlers for Ublox, Nmea and RTCM messages.
         self.ublox_message_found: Event[UBXMessage] = Event() 
         self.nmea_message_found: Event[NMEAMessage] = Event()
@@ -31,9 +32,9 @@ class UbloxSerial:
         self.__recent_ubx_message = dict[str,(float,UBXMessage)]()
         self.__setup_serial_port_and_reader(port_name, baudrate)
         self.runTime = 0
-        self.__poll_messages = {('NAV','NAV-HPPOSECEF'), ('NAV', 'NAV-HPPOSLLH'), ('NAV', 'NAV-PVT'), ('MON', 'MON-SYS')}
+        self.__poll_messages ={}
         if self.__rtk_mode == 'Rover':
-            self.__poll_messages.add(('NAV', 'NAV-RELPOSNED'))
+            self.__poll_messages.add(('NAV','NAV-HPPOSECEF'), ('NAV', 'NAV-HPPOSLLH'), ('NAV', 'NAV-PVT'), ('NAV', 'NAV-RELPOSNED'))
         self.__process =  threading.Thread(target=self.__serial_process, name="serial_process_thread", daemon=True)
         self.__process.start()
 
@@ -66,8 +67,8 @@ class UbloxSerial:
                     if self.runTime <= monSys.runTime:
                         self.runTime = monSys.runTime
                     else:
-                        # self.__logger.warn("Antenna rebooted. Reconfiguring the antenna")
-                        # self.__save_boot_times(self.runTime)
+                        self.logger.warn("Antenna rebooted. Reconfiguring the antenna")
+                        #self.__save_boot_times(self.runTime)
                         self.runTime = 0
                         self.config()
                 
@@ -92,12 +93,12 @@ class UbloxSerial:
             self.config()
             pass
         except serial.SerialException as se:
-            self.__logger.error("[Serial]: " + se.strerror)
+            self.logger.error(se.strerror)
             self.__port = None
             self.__is_running = False
             pass
         except Exception:
-            self.__logger.error('[Serial]: Exception occured while setting up the Serial Module.')
+            self.logger.error('Exception occured while setting up the Serial Module.')
             self.__is_running = False
         pass
     
@@ -124,7 +125,7 @@ class UbloxSerial:
             self.__is_running = False
             self.__setup_serial_port_and_reader(port_name, baudrate)
         except:
-            self.__logger.error("[Serial]: Exception occured while reconfiguring the port.")
+            self.logger.error("Exception occured while reconfiguring the port.")
             self.__is_running = False
             return False
         
@@ -149,11 +150,11 @@ class UbloxSerial:
                             self.__ublox_message_received(parsed_data)
                         elif isinstance(parsed_data, RTCMMessage):
                             self.__rtcm_message_received(parsed_data)
-                    except:
-                        self.__logger.warn("[Serial]: Port is open but unable to read from port.")
+                    except Exception as e:
+                        self.logger.warn("Port is open but unable to read from port. Error : {error}".format(error=str(e)))
                         break
                 else:
-                    self.__logger.warn("[Serial]: Port is not configured/open.")
+                    self.logger.warn("Port is not configured/open.")
                     break
             else:
                 break
@@ -162,7 +163,7 @@ class UbloxSerial:
         Message handler for Ublox message. Invokes ublox_message_found event.
     """
     def __ublox_message_received(self, message: UBXMessage) -> None:
-        # self.__logger.info("[Ublox]: "+ message.identity)
+        self.logger.debug(" <- [Ubx:{identity}] : {bytes}".format(identity = message.identity, bytes = str(message)))
         self.__recent_ubx_message[message.identity] = (time.time(), message)
         self.ublox_message_found(message)
         pass
@@ -171,7 +172,7 @@ class UbloxSerial:
         Message handler for Nmea message. Invokes nmea_message_found event.
     """
     def __nmea_message_received(self, message: NMEAMessage) -> None:
-        #self.__logger.info("[Nmea]: "+ message.identity)
+        self.logger.debug(" <- [Nmea:{identity}] : {bytes}".format(identity = message.identity, bytes = str(message)))
         if message.identity == "GNRMC" or message.identity == "GNGGA":
             self.__latitude = message.lat if message.lat else None
             self.__longitude = message.lon if message.lon else None
@@ -182,7 +183,7 @@ class UbloxSerial:
         Message handler for Rtcm message. Invokes rtcm_message_found event.
     """
     def __rtcm_message_received(self, message: RTCMMessage) -> None:
-        # self.__logger.info("[RTCM]: "+ message.identity)
+        self.logger.debug(" <- [Rtcm:{identity}] : {bytes}".format(identity = message.identity, bytes = str(message)))
         self.rtcm_message_found(message)
         pass
     
@@ -192,9 +193,10 @@ class UbloxSerial:
     def send(self, data: bytes) -> None:
         try:
             if self.__port is not None and self.__port.is_open:
+                self.logger.debug(" -> {bytes}".format(bytes=data.hex(' ')))
                 self.__port.write(data)
             else:
-                self.__logger.warn("[Serial]: Port is not configured/open.")
+                self.logger.warn("Port is not configured/open.")
         except Exception:
             pass
     
@@ -204,11 +206,13 @@ class UbloxSerial:
     """
     def poll(self):
         if self.__port is not None:
+            
+            self.logger.debug(" -> {bytes}".format(bytes="Polling Messages"))
             for (class_name, msg_name) in self.__poll_messages:
                 ubx = UBXMessage(class_name, msg_name, POLL)
                 self.send(ubx.serialize())
         else:
-            self.__logger.warn('[Serial]: Port is not configured/open.')
+            self.logger.warn('Port is not configured/open.')
         pass
     
     """
@@ -246,7 +250,7 @@ class UbloxSerial:
         
         self.__config_status = config_successful
         if not self.__config_status:
-            self.__logger.error("[Serial]: Configuration failed.")
+            self.logger.error("Configuration failed.")
         return config_successful
 
     """
@@ -353,7 +357,7 @@ class UbloxSerial:
             config_data.extend([('CFG_UART1INPROT_RTCM3X', 1), ('CFG_MSGOUT_UBX_RXM_RTCM_UART1', 0x1)]) 
 
         if use_corrections:
-            config_data.extend([('CFG_SPARTN_USE_SOURCE',0), ('CFG_UART1INPROT_SPARTN',1), ('CFG_MSGOUT_UBX_RXM_SPARTN_UART1',1)])
+            config_data.extend([('CFG_SPARTN_USE_SOURCE',0), ('CFG_UART1INPROT_SPARTN',1)])#, ('CFG_MSGOUT_UBX_RXM_SPARTN_UART1',1), ('CFG_MSGOUT_UBX_RXM_COR_UART1',1)])
             
         return config_data
     

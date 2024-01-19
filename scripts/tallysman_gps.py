@@ -14,16 +14,21 @@ from scripts.serial_module import UbloxSerial
 from pynmeagps import NMEAMessage
 from pyrtcm import RTCMMessage, RTCMReader
 from tallysman_msg.msg import GnssSignalStatus, RtcmMessage
+from scripts.logging import Logger, LoggingLevel, SimplifiedLogger
 
 class TallysmanGps(Node):
     def __init__(self, mode:Literal['Disabled', 'Heading_Base', 'Rover']='Disabled') -> None:
         super().__init__('tallysman_gps')
+        
+        internal_logger = Logger(self.get_logger())
         #region Parameters declaration
         self.declare_parameter('usb_port','/dev/ttyUSB1')
         self.declare_parameter('baud_rate', 230400)
         self.declare_parameter('use_corrections', True) # Parameter {config_path} needs to be present if this is True.
         self.declare_parameter('region', 'us') # The region where antenna is present. Parameter only needed when use_corrections is True
         self.declare_parameter('config_path', '/root/humble_ws/src/tallysman_ros2/pointperfect_files/ucenter-config.json') # The path where the corrections_config is placed. Parameter only needed when use_corrections is True
+        self.declare_parameter('save_logs', False)
+        self.declare_parameter('log_level', LoggingLevel.Info)
         #endregion
 
         #region Parameters Initialization
@@ -32,14 +37,18 @@ class TallysmanGps(Node):
         self.use_corrections = self.get_parameter("use_corrections").get_parameter_value().bool_value
         self.region = self.get_parameter("region").get_parameter_value().string_value
         self.config_path = self.get_parameter("config_path").get_parameter_value().string_value
+        self.save_logs = self.get_parameter("save_logs").get_parameter_value().bool_value
+        self.log_level : LoggingLevel = LoggingLevel(self.get_parameter("log_level").get_parameter_value().integer_value)
         self.mode : Literal['Disabled', 'Heading_Base', 'Rover'] = mode
-        
         #endregion
 
         self.process_thread = threading.Thread(target=self.__process, name='tallysman_gps_process', daemon=True)
         self.process_thread.start()
 
-        self.ser = UbloxSerial(self.usb_port, self.baud_rate, self.get_logger(), self.mode, self.use_corrections)
+        internal_logger.toggle_logs(self.save_logs)
+        internal_logger.setLevel(self.log_level)
+        self.logger = SimplifiedLogger(self.mode+'_GPS')
+        self.ser = UbloxSerial(self.usb_port, self.baud_rate, self.mode, self.use_corrections)
 
         #region Conditional attachments to events based on rover/base
         if self.mode == 'Heading_Base':
@@ -48,7 +57,7 @@ class TallysmanGps(Node):
 
             # Establishing Pointperfect connection only if it's enabled. Required parameters needs to be sent.
             if self.use_corrections:
-                self.pp = PointPerfectModule(self.get_logger(), self.config_path, self.region)
+                self.pp = PointPerfectModule(self.config_path, self.region)
                 self.ser.add_to_poll('RXM', 'RXM-SPARTN-KEY') # this is needed to periodically check for keys and reconnect to pointperfect
                 self.pp.on_correction_message += self.handle_correction_message
                 self.reconnect_timer = self.create_timer(30, self.__reconnect_pointperfect_if_needed)
@@ -85,7 +94,7 @@ class TallysmanGps(Node):
         Need to make sure we send entire message to the antenna without a delay, Since the correction messages are time dependent.
     """
     def handle_correction_message(self, message) -> None:
-        self.get_logger().info(message="[PointPerfect] : " + message.hex(' '))
+        self.logger.debug(message= "Sending correction message: " + message.hex(' '))
         self.ser.send(message)
         pass
     
@@ -103,7 +112,7 @@ class TallysmanGps(Node):
                 msg.latitude = float(latitude)
                 msg.longitude = float(longitude)
                 self.publisher.publish(msg)
-                self.get_logger().info('Published GPS data - Latitude: {:.6f}, Longitude: {:.6f}'.format(latitude, longitude))           
+                self.logger.info('Published GPS data - Latitude: {:.6f}, Longitude: {:.6f}'.format(latitude, longitude))           
         pass
     
     """
@@ -119,12 +128,12 @@ class TallysmanGps(Node):
             msg.identity = rtcmMessage.identity
             msg.payload = encoded_msg
             self.rtcm_publisher.publish(msg)
-            self.get_logger().info('Published RTCM message with identity: ' + rtcmMessage.identity) 
+            self.logger.info('Published RTCM message with identity: ' + rtcmMessage.identity) 
         else:
             data = base64.b64decode(rtcmMessage.payload.encode())
             rmg = RTCMReader.parse(data)
             self.ser.send(rmg.serialize())
-            self.get_logger().info('Received RTCM message: ' + rmg.identity)
+            self.logger.info('Received RTCM message with identity: ' + rmg.identity)
         pass
 
     def get_status(self) -> None:
@@ -140,11 +149,22 @@ class TallysmanGps(Node):
             # Checking if the parameter values are changed from start.
             # serial parameters check.
             if (self.usb_port != self.get_parameter('usb_port').get_parameter_value().string_value) or (self.baud_rate != self.get_parameter('baud_rate').get_parameter_value().integer_value):
-                self.get_logger().warn("Parameters Updated. Port:"+ self.get_parameter('usb_port').get_parameter_value().string_value + ", Baud Rate: " + str(self.get_parameter('baud_rate').get_parameter_value().integer_value))
+                self.logger.info("Parameters Updated. Port:"+ self.get_parameter('usb_port').get_parameter_value().string_value + ", Baud Rate: " + str(self.get_parameter('baud_rate').get_parameter_value().integer_value))
                 if self.__reconfig_serial_module():
-                    self.get_logger().info("Port reconfigured")
+                    self.logger.info("Port reconfigured.")
+                    self.usb_port = self.get_parameter('usb_port').get_parameter_value().string_value
+                    self.baud_rate = self.get_parameter('baud_rate').get_parameter_value().integer_value
                 else:
-                    self.get_logger().info("Port not reconfigured")
+                    self.logger.warn("Port not reconfigured.")
+            
+            if (self.save_logs != self.get_parameter('save_logs').get_parameter_value().bool_value):
+                self.save_logs = self.get_parameter('save_logs').get_parameter_value().bool_value
+                Logger().toggle_logs(self.save_logs)
+
+            if (self.log_level != self.get_parameter('log_level').get_parameter_value().integer_value):
+                log_level = self.get_parameter('log_level').get_parameter_value().integer_value
+                if Logger().setLevel(log_level):
+                    self.log_level = log_level
             time.sleep(10)
         pass
     
@@ -152,20 +172,20 @@ class TallysmanGps(Node):
         This method is called when serial parameters are changed in runtime. Serial module is reconfigured.
     """
     def __reconfig_serial_module(self) -> bool:
-        self.usb_port = self.get_parameter('usb_port').get_parameter_value().string_value
-        self.baud_rate = self.get_parameter('baud_rate').get_parameter_value().integer_value
-        return self.ser.reconfig_serial_port(self.usb_port, self.baud_rate)
+        usb_port = self.get_parameter('usb_port').get_parameter_value().string_value
+        baud_rate = self.get_parameter('baud_rate').get_parameter_value().integer_value
+        return self.ser.reconfig_serial_port(usb_port, baud_rate)
 
-    def __reconfig_pointperfect_module(self) -> bool:
-        self.use_corrections = self.get_parameter("use_corrections").get_parameter_value().bool_value
-        if self.use_corrections:
-            self.pp = PointPerfectModule(self.get_logger(), self.config_path, self.region)
-            self.pp.on_correction_message += self.handle_correction_message  
-        else:
-            self.pp.shutdown()
-            self.pp.on_correction_message -= self.handle_correction_message
-            self.pp = None
-            pass
+    # def __reconfig_pointperfect_module(self) -> bool:
+    #     self.use_corrections = self.get_parameter("use_corrections").get_parameter_value().bool_value
+    #     if self.use_corrections:
+    #         self.pp = PointPerfectModule(self.config_path, self.region)
+    #         self.pp.on_correction_message += self.handle_correction_message  
+    #     else:
+    #         self.pp.shutdown()
+    #         self.pp.on_correction_message -= self.handle_correction_message
+    #         self.pp = None
+    #         pass
     
     """
         Spartn keys are checked in the antenna. if no keys are present, pointperfect is reconnected to get a new pair of keys.

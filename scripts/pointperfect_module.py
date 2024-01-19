@@ -9,6 +9,8 @@ import time
 from events import Event
 import json
 
+from scripts.logging import SimplifiedLogger
+
 """
     This class is responsible to get all the fields required to make an MQTT connection for the PointPerfect correction messages.
 
@@ -72,7 +74,7 @@ class PointPerfectConfiguration:
         return os.path.join(directory, file_name)
 
 class PointPerfectModule:
-    def __init__(self, logger, config_path: str, region: str) -> None:
+    def __init__(self, config_path: str, region: str) -> None:
         self.__pc = PointPerfectConfiguration(region, config_path)
         self.on_correction_message: Event[bytes] = Event()
 
@@ -84,12 +86,8 @@ class PointPerfectModule:
         self.__client.on_disconnect = self.__on_disconnect
         self.__client.on_connect = self.__on_connect
 
-        # Still need to work on logging. Ignore below lines
-        self.__logger = logger
-        # self.logger.setLevel(logging.DEBUG)
-        # self.__client.enable_logger(logger=self.logger)
+        self.logger = SimplifiedLogger('PointPerfect')
 
-        self.__is_active = True        
         self.__connect()
         pass
     
@@ -97,8 +95,8 @@ class PointPerfectModule:
         Default callback for incoming message received from MQTT connection. Invokes on_correction_message event
     """
     def __on_message(self, client, userdata, message) -> None:
-        # self.__logger.info("Received message '" + str(message.payload) + "' on topic '"
-        #     + message.topic + "' with QoS " + str(message.qos))
+        self.logger.info("Received message '" + str(message.payload) + "' on topic '"
+            + message.topic + "' with QoS " + str(message.qos))
         self.on_correction_message(message.payload)
 
     """
@@ -125,58 +123,31 @@ class PointPerfectModule:
     """
     def __on_disconnect(self, client, userdata, rc) -> None:
         if rc != 0:
-            self.__logger.warn("[PointPerfect]: Unexpected disconnection." + self.__get_connection_message(rc) +". Trying to reconnect..")
+            self.logger.warn("Unexpected disconnection." + self.__get_connection_message(rc) +". Trying to reconnect..")
             self.__client.reconnect()
 
     """
         Callback for MQTT connect. subscribe to topics after connect.
     """
     def __on_connect(self, client, userdata, flags, rc) -> None:
-        self.__logger.info("[PointPerfect]: Connection returned result: " + self.__get_connection_message(rc))
+        self.logger.info("Connection returned result: " + self.__get_connection_message(rc))
         self.__client.subscribe(self.__pc.topics)
-
-    """
-        Seems like this can be done at other places more efficiently...Need to get back to this later.
-        
-        This should run only once for instance.
-        
-        Attemps the MQTT connection and Subscribes to topics.
-        Reconnects if the connection is lost.
-    """
-    # def __process(self) -> None:
-    #     while(rclpy.ok() and self.__is_active):
-    #         if(not self.__client.is_connected()):
-    #             self.__logger.info("PointPerfect Reconnecting....")
-    #             try:
-    #                 pc = self.__pc
-    #                 self.__client.connect(host=pc.Host, port=pc.Port, keepalive=pc.keep_alive)
-    #                 self.__client.subscribe(self.__pc.topics)
-    #                 self.__client.loop_start()
-    #             except:
-    #                 self.__logger.warn("Exception occured in pointperfect module.")
-    #         time.sleep(1)
 
     """
         Connects to MQTT client.
     """
     def __connect(self) -> None:
-        # Starting a separate pointperfect thread for pointperfect process
-        # self.__pp_thread = threading.Thread(target=self.__process, name='corrections_thread', daemon=True)
-        # self.__is_active = True
-        # self.__pp_thread.start()
         try:
             pc = self.__pc
             self.__client.connect(host=pc.Host, port=pc.Port, keepalive=pc.keep_alive)
-            # self.__client.subscribe(self.__pc.topics)
             self.__client.loop_start()
         except:
-            self.__logger.error("[PointPerfect]: Exception occured while connecting to PointPerfect client")
+            self.logger.error("Exception occured while connecting to PointPerfect client")
 
     """
         Disconnects from MQTT client.
     """
     def __disconnect(self) -> None:
-        # self.__pp_thread = None
         self.__client.loop_stop()
         self.__client.disconnect()
 
@@ -184,4 +155,4 @@ class PointPerfectModule:
         try:
             self.__client.reconnect()
         except Exception as ex:
-            self.__logger.error("[PointPerfect]: Exception occured while reconnecting to PointPerfect client")
+            self.logger.error("Exception occured while reconnecting to PointPerfect client")
