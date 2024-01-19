@@ -32,9 +32,9 @@ class UbloxSerial:
         self.__recent_ubx_message = dict[str,(float,UBXMessage)]()
         self.__setup_serial_port_and_reader(port_name, baudrate)
         self.runTime = 0
-        self.__poll_messages ={}
+        self.__poll_messages: set[tuple[str,str]] = set()
         if self.__rtk_mode == 'Rover':
-            self.__poll_messages.add(('NAV','NAV-HPPOSECEF'), ('NAV', 'NAV-HPPOSLLH'), ('NAV', 'NAV-PVT'), ('NAV', 'NAV-RELPOSNED'))
+            self.__poll_messages.update(set([('NAV','NAV-HPPOSECEF'), ('NAV', 'NAV-HPPOSLLH'), ('NAV', 'NAV-PVT'), ('NAV', 'NAV-RELPOSNED')]))
         self.__process =  threading.Thread(target=self.__serial_process, name="serial_process_thread", daemon=True)
         self.__process.start()
 
