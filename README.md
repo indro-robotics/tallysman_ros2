@@ -71,6 +71,75 @@ To install Tallysman ROS2, follow these steps:
     pip install -r requirements.txt
       ```
 
+## Modes of Operation
+
+### 1. Disabled Mode
+
+#### Overview
+The Disabled mode of the `Tallyman_ros2` node allows it to function as a standalone node. It connects to the serial port of the Tallysman antenna and publishes GPS data.
+
+#### Usage
+- Example Launch File: `Tallysman_ros2/launch/tallysman_disabled.launch.py`
+- Topic Created: `gps` (message type: `NavSatFix`)
+
+#### Parameters
+1. `usb_port`: Standard/Read and write port for the Tallysman antenna.
+2. `baud_rate`: Baud rate for serial communication.
+3. `save_logs`: Flag to save logs.
+4. `log_level`: Logging level.
+5. `use_corrections`: Flag indicating whether corrections are used.
+6. `config_path`: Path to configuration files.
+7. `region`: Region information.
+
+#### Launch File Argument
+- `arguments=['Disabled']`
+
+
+### 2. Static_Base Mode
+
+#### Overview
+*(Under development - No further details provided)*
+
+
+### 3. Heading_Base Mode
+
+#### Overview
+Heading_Base mode is part of the moving baseline heading configuration. The node connects to the serial port of the Tallysman antenna and publishes Rtcm corrections for the intended rover nodes.
+
+#### Usage
+- Example Launch File: `Tallysman_ros2/launch/tallysman_moving_baseline.launch.py`
+- Topic Created: `rtcm_corrections` (internal topic for Base-Rover communication)
+
+#### Parameters (Similar to Disabled Mode)
+
+#### Launch File Argument
+- `arguments=['Heading_Base']`
+
+
+### 4. Rover Mode
+
+#### Overview
+Rover mode can be used in both moving baseline heading and static baseline heading configurations. The node connects to the serial port of the Tallysman antenna, subscribes to the "rtcm_corrections" topic, and requires another node running in Heading_Base or Static_Base mode.
+
+#### Usage
+- Requires a corresponding node in Heading_Base or Static_Base mode.
+
+#### Parameters (Similar to Disabled Mode)
+
+#### Launch File Argument
+- `arguments=['Rover']`
+
+
+## Udev Rule
+
+If an Ubuntu OS is being used, add the following udev rule to detect the standard bidirectional port of the Tallysman antenna. This rule detects the standard bidirectional port of the antenna and renames it to “Tallysman_USB” followed by the Kernel number.
+
+```udev
+KERNEL=="ttyUSB*", SUBSYSTEMS=="usb", DRIVERS=="cp210x", ATTRS{interface}=="Standard Com Port", SYMLINK+="Tallysman_USB%n"
+```
+
+**Note:** Ensure that this udev rule is added to the system configuration to facilitate the detection and naming of the Tallysman antenna's standard bidirectional port.
+
 
 ## :books: Usage
 
