@@ -41,7 +41,7 @@ You can find your port by command "ls /dev/ttyUSB*" replace in launch file with 
 
 - [Tallymatics Antenna](https://tallymatics.com/product/tw5390/)
 - [Ubuntu 22](https://indrorobotics.notion.site/Installing-Dual-OS-and-upgrade-laptop-SSD-0d7c4b8ee9d54e14bbeb9f7ac24f8079?pvs=4)
-- [ROS (Humble)](https://www.notion.so/indrorobotics/Getting-Started-with-ROS2-a3960c906f0d46789cd1d7b329784dd0)
+- [ROS2 (Humble)](https://www.notion.so/indrorobotics/Getting-Started-with-ROS2-a3960c906f0d46789cd1d7b329784dd0)
 - [Python](https://docs.python.org/3/)
 
   ```diff
@@ -101,8 +101,54 @@ These are the Parameters defined in the Tallysman Ros2 Node
 
 The Tallysman antenna can be operated in different modes based on configuration. The mode of operation cannot be changed when the node is running. It must be passed as an argument in the launch file.
 
+### Disabled Mode:
 
+- **Description:** This mode is under development and works as a standalone node.
+- **Functionality:** Connects to the serial port of the Tallysman antenna and publishes GPS data (latitude and longitude) on the "gps" topic with the message type NavSatFix.
+- **Launch File:** `Tallysman_ros2/launch/tallysman_disabled.launch.py`
+- **Parameters:**
+  - usb_port
+  - baud_rate
+  - save_logs
+  - log_level
+  - use_corrections
+  - config_path
+  - region
+- **Launch Arguments:** `arguments=['Disabled']`
 
+### Static_Base Mode:
+
+- **Description:** Under development (details not provided).
+- **Functionality:** Yet to be developed.
+
+### Heading_Base Mode:
+
+- **Description:** Part of the moving baseline heading configuration.
+- **Functionality:** Connects to the serial port of the Tallysman antenna and publishes Rtcm corrections on the "rtcm_corrections" topic. This topic is intended for internal use by the respective rover nodes.
+- **Launch File:** `Tallysman_ros2/launch/tallysman_moving_baseline.launch.py`
+- **Parameters:**
+  - usb_port
+  - baud_rate
+  - save_logs
+  - log_level
+  - use_corrections
+  - config_path
+  - region
+- **Launch Arguments:** `arguments=['Heading_Base']`
+
+### Rover Mode:
+
+- **Description:** Can be used in both moving baseline heading configuration and static baseline heading configuration.
+- **Functionality:** Connects to the serial port of the Tallysman antenna, subscribes to the "rtcm_corrections" topic created by the base node.
+- **Requirements:** Requires another node running with Heading_Base or Static_Base.
+- **Parameters:**
+  - usb_port
+  - baud_rate
+  - save_logs
+  - log_level
+- **Launch Arguments:** `arguments=['Rover']`
+
+It's crucial to configure the launch files with the appropriate parameters and arguments based on the desired mode of operation. Additionally, ensure that the necessary dependencies are met and the topic names are unique for the antennas in same configuration.
 
 ## :computer: Udev Rule
 
