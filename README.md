@@ -89,13 +89,30 @@ To install Tallysman ROS2, follow these steps:
 
 These are the Parameters defined in the Tallysman Ros2 Node
 
-1. `usb_port`: Standard/Read and write port for the Tallysman antenna.
-2. `baud_rate`: Baud rate for serial communication.
-3. `save_logs`: Flag to save logs.
-4. `log_level`: Logging level.
-5. `use_corrections`: Flag indicating whether corrections are used.
-6. `config_path`: Path to configuration files.
-7. `region`: Region information.
+1. **`usb_port (string)*`:**
+   - Standard/Read and write port for the Tallysman antenna. The udev rule will automatically detect this port and rename it to "Tallysman_USB" if added.
+
+2. **`baud_rate (string)*`:**
+   - Baud rate for serial communication. Default value should be 230400.
+
+3. **`save_logs (boolean)*`:**
+   - Flag to save logs. If true, all the logs will be saved to the logs folder.
+
+4. **`log_level (integer)*`:**
+   - Logging level. Log level values are of ROS2 logging standards. Default is `Info`.
+     - `(NotSet: 0, Debug: 10, Info: 20, Warn: 30, Error: 40, Critical: 50)`.
+
+5. **`use_corrections (boolean)`:**
+   - Flag indicating whether PPP-RTK corrections are used.
+
+6. **`config_path (string)`:**
+   - Path to PPP-RTK configuration file.
+
+7. **`region (string)`:**
+   - Region information. Accepted values are `us, eu, kr, au`.
+
+Note: Parameters marked with `*` can be changed dynamically; others have no effect if changed.
+
 
 ## :gear: Operating Modes
 
