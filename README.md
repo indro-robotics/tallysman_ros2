@@ -92,7 +92,7 @@ These are the Parameters defined in the Tallysman Ros2 Node
 1. **`usb_port (string)*`:**
    - Standard/Read and write port for the Tallysman antenna. The udev rule will automatically detect this port and rename it to "Tallysman_USB" if added.
 
-2. **`baud_rate (string)*`:**
+2. **`baud_rate (integer)*`:**
    - Baud rate for serial communication. Default value should be 230400.
 
 3. **`save_logs (boolean)*`:**
