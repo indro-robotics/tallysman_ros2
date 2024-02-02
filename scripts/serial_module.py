@@ -1,4 +1,4 @@
-import logging
+from collections import UserList
 import threading
 import time
 from typing import Literal, overload
@@ -9,7 +9,7 @@ from pyubx2 import ubxreader, UBXMessage, GET, SET, POLL
 from pynmeagps import NMEAMessage
 from pyrtcm import RTCMMessage
 from tallysman_msg.msg import GnssSignalStatus, GnssLocation
-from builtin_interfaces.msg import Time
+from sensor_msgs.msg import NavSatStatus
 from scripts.logging import SimplifiedLogger
 
 class UbloxSerial:
@@ -32,9 +32,7 @@ class UbloxSerial:
         self.__recent_ubx_message = dict[str,(float,UBXMessage)]()
         self.__setup_serial_port_and_reader(port_name, baudrate)
         self.runTime = 0
-        self.__poll_messages: set[tuple[str,str]] = set()
-        if self.__rtk_mode == 'Rover':
-            self.__poll_messages.update(set([('NAV','NAV-HPPOSECEF'), ('NAV', 'NAV-HPPOSLLH'), ('NAV', 'NAV-PVT'), ('NAV', 'NAV-RELPOSNED')]))
+        # self.__poll_messages: set[tuple[str,str]] = set()
         self.__process =  threading.Thread(target=self.__serial_process, name="serial_process_thread", daemon=True)
         self.__process.start()
 
@@ -68,7 +66,7 @@ class UbloxSerial:
                         self.runTime = monSys.runTime
                     else:
                         self.logger.warn("Antenna rebooted. Reconfiguring the antenna")
-                        #self.__save_boot_times(self.runTime)
+                        # self.__save_boot_times(self.runTime)
                         self.runTime = 0
                         self.config()
                 
@@ -164,7 +162,8 @@ class UbloxSerial:
     """
     def __ublox_message_received(self, message: UBXMessage) -> None:
         self.logger.debug(" <- [Ubx:{identity}] : {bytes}".format(identity = message.identity, bytes = str(message)))
-        self.__recent_ubx_message[message.identity] = (time.time(), message)
+        if ((message.identity == "RXM-SPARTN" or message.identity == "RXM-RTCM") and message.msgUsed == 2) or (message.identity != "RXM-SPARTN" and message.identity != "RXM-RTCM"):
+            self.__recent_ubx_message[message.identity] = (time.time(), message)
         self.ublox_message_found(message)
         pass
     
@@ -206,7 +205,6 @@ class UbloxSerial:
     """
     def poll(self):
         if self.__port is not None:
-            
             self.logger.debug(" -> {bytes}".format(bytes="Polling Messages"))
             for (class_name, msg_name) in self.__poll_messages:
                 ubx = UBXMessage(class_name, msg_name, POLL)
@@ -215,6 +213,17 @@ class UbloxSerial:
             self.logger.warn('Port is not configured/open.')
         pass
     
+    def poll_once(self, class_name: str, msg_name: str)-> UBXMessage:
+        ubx = UBXMessage(class_name, msg_name, POLL)
+        retry_count = 0
+        polled_message:UBXMessage = None
+        while(polled_message is None and retry_count < 3):
+            self.send(ubx.serialize())
+            time.sleep(0.5) # delay to make sure antenna response is logged before another attempt.
+            polled_message = self.get_recent_ubx_message(msg_name)
+            retry_count = retry_count + 1
+        return polled_message
+
     """
         Adds only if not present.
     """
@@ -258,11 +267,7 @@ class UbloxSerial:
     """
     def get_status(self) -> GnssSignalStatus :
         gnss_status = GnssSignalStatus()
-        # loc = GnssLocation()
         try:
-            # t = Time()
-            # t.sec = int(time.time())
-            # loc.time = t
             if self.__latitude is not None and self.__longitude is not None:
                 gnss_status.latitude = float(self.__latitude) 
                 gnss_status.longitude = float(self.__longitude)
@@ -274,19 +279,40 @@ class UbloxSerial:
             nav_pvt = self.get_recent_ubx_message('NAV-PVT')
             nav_relposned = self.get_recent_ubx_message('NAV-RELPOSNED')
             nav_hpposecef = self.get_recent_ubx_message('NAV-HPPOSECEF')
-            rxm_rtcm = self.get_recent_ubx_message('RXM-RTCM')
+            augmentations_used = False
+            if self.__rtk_mode == 'Disabled':
+                rxm_spartn = self.get_recent_ubx_message('RXM-SPARTN')
+                augmentations_used = True if rxm_spartn and rxm_spartn.msgUsed == 2 else False
+            else: 
+                rxm_rtcm = self.get_recent_ubx_message('RXM-RTCM')
+                augmentations_used = True if rxm_rtcm and rxm_rtcm.msgUsed == 2 else False
             #gnss_status.header.time.sec = int(time.time())
             if nav_relposned is not None:
                 gnss_status.heading = nav_relposned.relPosHeading
                 gnss_status.length = float(nav_relposned.relPosLength)
             if nav_hpposecef is not None and nav_hpposllh is not None:
+                variance = [float(nav_hpposllh.hAcc**2),0.0,0.0,0.0,float(nav_hpposllh.vAcc**2),0.0,0.0,0.0,float(nav_hpposllh.hAcc**2)]
+                gnss_status.position_covariance = UserList(variance)
+                gnss_status.position_covariance_type = gnss_status.COVARIANCE_TYPE_DIAGONAL_KNOWN
+                gnss_status.altitude = float(nav_hpposllh.height/1000)#scaling and meters conversion
                 gnss_status.two_dimension_accuracy = float(nav_hpposllh.hAcc/1000) # scaling and meters conversion
                 gnss_status.three_dimension_accuracy = float(nav_hpposecef.pAcc/1000) # scaling and meters conversion
-            if rxm_rtcm is not None:
-                gnss_status.augmentations_used = True if rxm_rtcm.msgUsed == 2 else False
+            gnss_status.augmentations_used = augmentations_used
             if nav_pvt is not None:
+                status = NavSatStatus()
+                if nav_pvt.gnssFixOk == 1:
+                    if nav_pvt.carrSoln != 0:
+                        status.status = NavSatStatus.STATUS_GBAS_FIX
+                    else:
+                        status.status = NavSatStatus.STATUS_FIX
+                else:
+                    status.status = NavSatStatus.STATUS_NO_FIX
+                
+                status.service = NavSatStatus.SERVICE_GALILEO | NavSatStatus.SERVICE_GLONASS | NavSatStatus.SERVICE_GPS | NavSatStatus.SERVICE_COMPASS
+                gnss_status.status = status
                 gnss_status.quality = self.__get_quality_string(nav_pvt)
-        except:
+        except Exception as ex:
+            print(ex)
             pass        
         return gnss_status
 
@@ -338,14 +364,14 @@ class UbloxSerial:
     
     def __get_config_set(self, mode_of_operation: Literal['Disabled', 'Heading_Base', 'Rover'], use_corrections: bool = False) -> list :
         # Common configuration. Enabling Nmea, Ubx messages for both input and output.
-        config_data = [('CFG_UART1INPROT_NMEA',1), ('CFG_UART1INPROT_UBX',1), ('CFG_UART1OUTPROT_NMEA',1), ('CFG_UART1OUTPROT_UBX',1)]
+        config_data = [('CFG_UART1INPROT_NMEA', 1), ('CFG_UART1INPROT_UBX', 1), ('CFG_UART1OUTPROT_NMEA', 1), ('CFG_UART1OUTPROT_UBX', 1), ('CFG_MSGOUT_UBX_MON_SYS_UART1', 1), ('CFG_NAVSPG_DYNMODEL', 0)]
 
         if mode_of_operation == 'Disabled':
-            # No configuration is required apart from common configuration.
+            config_data.extend([('CFG_MSGOUT_UBX_NAV_HPPOSECEF_UART1', 1), ('CFG_MSGOUT_UBX_NAV_HPPOSLLH_UART1', 1), ('CFG_MSGOUT_UBX_NAV_PVT_UART1', 1)])
             pass
         elif mode_of_operation == 'Heading_Base':
             # Enabling output RTCM and disabling input RTCM
-            config_data.extend([('CFG_UART1INPROT_RTCM3X', 0), ('CFG_UART1OUTPROT_RTCM3X', 1), ('CFG_NAVSPG_DYNMODEL', 2)]) 
+            config_data.extend([('CFG_UART1INPROT_RTCM3X', 0), ('CFG_UART1OUTPROT_RTCM3X', 1)]) 
 
             # Common RTCM message types for Base (1074, 1084, 1094, 1124).
             config_data.extend([('CFG_MSGOUT_RTCM_3X_TYPE1074_UART1', 0x1), ('CFG_MSGOUT_RTCM_3X_TYPE1084_UART1', 0x1), ('CFG_MSGOUT_RTCM_3X_TYPE1124_UART1', 0x1), ('CFG_MSGOUT_RTCM_3X_TYPE1094_UART1', 0x1)])
@@ -354,13 +380,13 @@ class UbloxSerial:
             config_data.extend([('CFG_MSGOUT_RTCM_3X_TYPE4072_0_UART1', 0x1), ('CFG_MSGOUT_RTCM_3X_TYPE1230_UART1', 0x1), ('CFG_TMODE_MODE', 0x0)])
         elif mode_of_operation == 'Rover':
             # rover related configurations
-            config_data.extend([('CFG_UART1INPROT_RTCM3X', 1), ('CFG_MSGOUT_UBX_RXM_RTCM_UART1', 0x1)]) 
+            config_data.extend([('CFG_UART1INPROT_RTCM3X', 1), ('CFG_MSGOUT_UBX_RXM_RTCM_UART1', 0x1), ('CFG_MSGOUT_UBX_NAV_HPPOSECEF_UART1', 1), ('CFG_MSGOUT_UBX_NAV_HPPOSLLH_UART1', 1), ('CFG_MSGOUT_UBX_NAV_PVT_UART1', 1), ('CFG_MSGOUT_UBX_NAV_RELPOSNED_UART1', 1)]) 
 
         if use_corrections:
-            config_data.extend([('CFG_SPARTN_USE_SOURCE',0), ('CFG_UART1INPROT_SPARTN',1)])#, ('CFG_MSGOUT_UBX_RXM_SPARTN_UART1',1), ('CFG_MSGOUT_UBX_RXM_COR_UART1',1)])
+            config_data.extend([('CFG_SPARTN_USE_SOURCE', 0), ('CFG_UART1INPROT_SPARTN', 1), ('CFG_MSGOUT_UBX_RXM_SPARTN_UART1', 1), ('CFG_MSGOUT_UBX_RXM_COR_UART1', 1)])
             
         return config_data
-    
+
     def __save_boot_times(self, time_in_sec: int):
         with open(self.__rtk_mode + '_boot_times.txt', 'a') as log_file:
             log_file.write("\nAntenna Rebooted after sec: " + str(time_in_sec))

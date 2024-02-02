@@ -5,10 +5,8 @@ import sys
 import base64
 from rclpy.node import Node
 from sensor_msgs.msg import NavSatFix
-from std_msgs.msg import ByteMultiArray
-from collections import UserList
+from std_msgs.msg import Header
 import threading
-from queue import Queue
 from scripts.pointperfect_module import PointPerfectModule
 from scripts.serial_module import UbloxSerial
 from pynmeagps import NMEAMessage
@@ -53,37 +51,41 @@ class TallysmanGps(Node):
         #region Conditional attachments to events based on rover/base
         if self.mode == 'Heading_Base':
             # Publisher to publish RTCM corrections to Rover
-            self.rtcm_publisher = self.create_publisher(RtcmMessage, 'rtcm_corrections', 50)     
-
-            # Establishing Pointperfect connection only if it's enabled. Required parameters needs to be sent.
-            if self.use_corrections:
-                self.pp = PointPerfectModule(self.config_path, self.region)
-                self.ser.add_to_poll('RXM', 'RXM-SPARTN-KEY') # this is needed to periodically check for keys and reconnect to pointperfect
-                self.pp.on_correction_message += self.handle_correction_message
-                self.reconnect_timer = self.create_timer(30, self.__reconnect_pointperfect_if_needed)
-            
+            self.rtcm_publisher = self.create_publisher(RtcmMessage, 'rtcm_corrections', 50)
             self.ser.rtcm_message_found += self.handle_rtcm_message
+            pass
         elif self.mode == 'Rover':
             # Subscriber for receiving RTCM corrections from base.
             self.rtcm_subscriber = self.create_subscription(RtcmMessage, 'rtcm_corrections', self.handle_rtcm_message, 50)
-            
             # Publisher for location information. Taking location from rover since it is more accurate.
             self.publisher = self.create_publisher(NavSatFix, 'gps', 50)
-            
             # Publisher for location information. Taking location from rover since it is more accurate.
             self.status_publisher = self.create_publisher(GnssSignalStatus, 'gps_extended', 50)
-            
-            self.ser.nmea_message_found += self.handle_nmea_message
-            
             # Timer to poll status messages from base/rover for every sec.
             self.status_timer = self.create_timer(1, self.get_status)
-
+            pass
+        elif self.mode =='Disabled':
+            # Publisher for location information. Taking location from rover since it is more accurate.
+            self.publisher = self.create_publisher(NavSatFix, 'gps', 50)
+            # Publisher for location information. Taking location from rover since it is more accurate.
+            self.status_publisher = self.create_publisher(GnssSignalStatus, 'gps_extended', 50)
+            # Timer to poll status messages from base/rover for every sec.
+            self.status_timer = self.create_timer(1, self.get_status)
+            pass
+            
+        # Establishing Pointperfect connection only if it's enabled. Required parameters needs to be sent.
+        if self.use_corrections:
+            self.pp = PointPerfectModule(self.config_path, self.region)
+            # self.ser.add_to_poll('RXM', 'RXM-SPARTN-KEY') # this is needed to periodically check for keys and reconnect to pointperfect
+            self.pp.on_correction_message += self.handle_correction_message
+            self.reconnect_timer = self.create_timer(30, self.__reconnect_pointperfect_if_needed)
+        
         #endregion
 
         self.lock = threading.Lock()
 
         # Timer to poll status messages from base/rover for every sec.
-        self.timer = self.create_timer(1, self.ser.poll)
+        # self.timer = self.create_timer(1, self.ser.poll)
 
         pass
 
@@ -138,7 +140,23 @@ class TallysmanGps(Node):
 
     def get_status(self) -> None:
         status = self.ser.get_status()
+        
+        header = Header()
+        header.stamp = self.get_clock().now().to_msg()
+        header.frame_id = 'gps'
+        status.header = header
         self.status_publisher.publish(status)
+        if status.latitude is not None and status.longitude is not None:
+            msg = NavSatFix()
+            msg.header = header
+            msg.latitude = status.latitude
+            msg.longitude = status.longitude
+            msg.altitude = status.altitude
+            msg.position_covariance = status.position_covariance
+            msg.position_covariance_type = status.position_covariance_type
+            msg.status = status.status
+            self.publisher.publish(msg)
+            self.logger.info('Published GPS data - Latitude: {:.6f}, Longitude: {:.6f}'.format(status.latitude, status.longitude))    
         pass
     
     """

@@ -11,7 +11,7 @@ import json
 class GPSDataSubscriber(Node):
     def __init__(self):
         super().__init__('gps_data_subscriber')
-        self.subscription = self.create_subscription(NavSatFix, 'tallysman_gps_data', self.callback, 10)
+        self.subscription = self.create_subscription(NavSatFix, 'gps', self.callback, 10)
         self.map_file = 'gps_map.html'
         self.history = []  # List to store historical GPS data points
 
