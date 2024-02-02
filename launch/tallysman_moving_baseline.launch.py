@@ -56,5 +56,16 @@ def generate_launch_description():
                 ('rtcm_corrections','rtcm_topic')
             ],
             arguments=['Rover']
+        ),
+        Node(
+            package='tallysman_ros2',
+            executable='tallysman_gps_visualizer',
+            name='gps_visualizer',
+            output='screen',
+            emulate_tty=False,
+            parameters=[
+                {'port': 8080}
+            ],
+            namespace='tallysman',
         )
     ])

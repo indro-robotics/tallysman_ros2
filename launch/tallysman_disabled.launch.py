@@ -18,15 +18,26 @@ def generate_launch_description():
             output='screen',
             emulate_tty=True,
             parameters=[
-                {'baud_rate': 230400},
+                {'baud_rate': 38400},
                 {'usb_port':'/dev/Tallysman_USB1'},
                 {'use_corrections': True},
                 {'config_path': '/root/humble_ws/src/tallysman_ros2/pointperfect_files/ucenter-config.json'},
                 {'region': 'us'},
-                {'save_logs': True},
+                {'save_logs': False},
                 {'log_level': 20}
             ],
             namespace='tallysman',            
             arguments=['Disabled']
+        ),
+        Node(
+            package='tallysman_ros2',
+            executable='tallysman_gps_visualizer',
+            name='gps_visualizer',
+            output='screen',
+            emulate_tty=False,
+            parameters=[
+                {'port': 8080}
+            ],
+            namespace='tallysman',
         )
     ])
