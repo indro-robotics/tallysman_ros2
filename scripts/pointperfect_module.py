@@ -59,7 +59,7 @@ class PointPerfectConfiguration:
         Generates the required cert/key files from the Configuration.
     """
     def __generate_cert_file(self, header: str, contents: str, file_name: str) -> str:
-        directory = '/root/humble_ws/src/tallysman_ros2/pointperfect_files'
+        directory = 'src/tallysman_ros2/pointperfect_files'
         os.makedirs(directory, exist_ok=True)
         with open(os.path.join(directory, file_name), "w") as file:
             lines = []

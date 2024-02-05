@@ -21,7 +21,7 @@ def generate_launch_description():
                 {'baud_rate': 38400},
                 {'usb_port':'/dev/Tallysman_USB1'},
                 {'use_corrections': True},
-                {'config_path': '/root/humble_ws/src/tallysman_ros2/pointperfect_files/ucenter-config.json'},
+                {'config_path': 'src/tallysman_ros2/pointperfect_files/ucenter-config.json'},
                 {'region': 'us'},
                 {'save_logs': False},
                 {'log_level': 20}
