@@ -18,7 +18,7 @@ def generate_launch_description():
             output='screen',
             emulate_tty=True,
             parameters=[
-                {'baud_rate': 38400},
+                {'baud_rate': 230400},
                 {'usb_port':'/dev/Tallysman_USB1'},
                 {'use_corrections': True},
                 {'config_path': 'src/tallysman_ros2/pointperfect_files/ucenter-config.json'},

@@ -27,8 +27,7 @@ Tallysman ROS2 is a ROS2 package that provides functionality for interfacing wit
 
 ### USB port
 
-You can find your port by command "ls /dev/ttyUSB*" replace in launch file with your correct port as shown below
-![image](https://github.com/indro-robotics/tallysman_ros2/assets/128490600/a7c957ba-d4a4-4160-80e0-fedfa7e63486)
+To find the connected USB devices use command "ls /dev/ttyUSB*". If the udev rule is added you can find the tallysman antenna ports by command "ls /dev/Tallysman_USB*". Replace the `usb_port` parameter in the launch file with correct port name.
 
 ## :dizzy: Features
 
@@ -53,22 +52,23 @@ You can find your port by command "ls /dev/ttyUSB*" replace in launch file with 
 
 To install Tallysman ROS2, follow these steps:
 
-1. **ROS Workspace:** Move to your ROS2 workspace (example: mine is test_ws)
+1. **ROS Workspace:** Move to your ROS2 workspace (example: mine is humble_ws)
 
    ```bash
-    cd ~/test_ws/src
+    cd ~/humble_ws/src
     ```
 
 2. **Clone the repository:**
 
     ```bash
     git clone https://github.com/indro-robotics/tallysman_ros2.git
+    git clone https://github.com/indro-robotics/tallysman_msg.git
     ```
-
+   
 3. **Build the package using colcon:**
 
     ```bash
-    cd ~/test_ws
+    cd ~/humble_ws
     colcon build
     ```
 
@@ -78,10 +78,10 @@ To install Tallysman ROS2, follow these steps:
     source install/setup.bash
     ```
 
-5. Go to your project, and install requirements.txt for installing all the required libraries at once. (for exampe mine is under test_ws/src/tallysman_ros2)
+5. Go to your project, and install requirements.txt for installing all the required libraries at once. (for exampe mine is under humble_ws/src/tallysman_ros2)
 
     ```bash
-    cd test_ws/src/tallysman_ros2
+    cd humble_ws/src/tallysman_ros2
     pip install -r requirements.txt
       ```
 
@@ -171,56 +171,58 @@ It's crucial to configure the launch files with the appropriate parameters and a
 
 If an Ubuntu OS is being used, add the following udev rule to detect the standard bidirectional port of the Tallysman antenna. This rule detects the standard bidirectional port of the antenna and renames it to “Tallysman_USB” followed by the Kernel number.
 
+Ensure that this udev rule is added to the system configuration ( `/lib/udev/rules.d/40-tallysman.rules` file ) to facilitate the detection and naming of the Tallysman antenna's standard bidirectional port. You need to have sudo permissions to add this rule.
+
 ```udev
 KERNEL=="ttyUSB*", SUBSYSTEMS=="usb", DRIVERS=="cp210x", ATTRS{interface}=="Standard Com Port", SYMLINK+="Tallysman_USB%n"
 ```
 
-**Note:** Ensure that this udev rule is added to the system configuration to facilitate the detection and naming of the Tallysman antenna's standard bidirectional port.
+After adding the rule run the below command to reload the udev rules without doing a reboot.
+
+```bash
+sudo udevadm control --reload-rules && sudo udevadm trigger
+```
+
+**Note:** Change the `usb_port` parameter of the launch files to `/dev/ttyUSB{kernel_number}` of the bidirectional port of the antenna if udev rule is not configured.
 
 ## :books: Usage
 
-To use Tallysman ROS2 in your ROS2-based system, follow these steps:
+Tallysman Ros2 package can be used in different configurations. Example launch files for different configurations can be found in the `launch` folder (`/src/tallysman_ros2/launch/`) of the Tallysman ROS2 package. The `tallysman_gps_visualizer` node is run alongside the `tallysman_gps` node to display the published location data.
 
-- Launch the tallysman_gps node:
+### RTK disabled configuration.
+
+- To use PPP-RTK corrections, make sure you have the config_file.json in place as mentioned in the PPP-RTK corrections setup section and parameters `use_corrections` is True and `config_path` is 'src/tallysman_ros2/pointperfect_files/config_file.json' and `region` is desired region. These three parameters are necessary for the PPP-RTK corrections.
+- After modifying the launch file build the workspace using `colcon build` and source the terminal using `source install/setup.bash`. You need to build and source it every time you change something in the launch file.
+- Launch the nodes using the command below.
+   ```
+   ros2 launch tallysman_ros2 tallysman_disabled.launch.py
+   ```
+- When the above command is executed the tallysman_gps node is started in disabled configuration and you can see location data getting published onto `gps` topic.
+- Also, The visualizer node is also started and you can visit http://localhost:8080 to see the location data mapped onto a map.
+
+- **Note**: Default port_number of visualizer node is 8080 but you can change it by modifying the `port` parameter of the launch file.
+
+### RTK-Moving Baseline configuration:
+
+Moving Baseline configuration requires two tallysman antennas (One base, one rover). Only antennas with Zed-f9p chips can act as Base and Antennas with both ZED-F9P/ ZED-F9R chips can act as Rover.
+
+- Follow similar steps of RTK disabled configuration and make necessary changes to the launch file
+- Build and source the terminal
+- Launch the nodes using the command below.
 
    ```
-   ros2 run tallysman_ros2 tallysman_gps
+   ros2 launch tallysman_ros2 tallysman_moving_baseline.launch.py
    ```
-
-  ```diff
-  - If you face permission error like below image, use 'chmod' command
-  
-  sudo chmod a+rw /dev/ttyUSB0
-  ```
-
-  ![tallysman1](https://github.com/indro-robotics/tallysman_ros2/assets/128490600/b1640fd8-1d59-4c8e-af26-7435f9b13373)
-
-   When you ros run the ``` tallysman_gps ``` node, you will see latitude and longitude data.
-  ![tallysman2](https://github.com/indro-robotics/tallysman_ros2/assets/128490600/a8a1d9ba-3aa0-4ad2-b6b3-57460abee6ba)
-
-- Launch tallysman_gps_visualize node:
-  Open another terminal and source it.
-  Now, launch the tallysman_gps_visualize node
-
-  ```
-   ros2 run tallysman_ros2 tallysman_gps_visualize
-  ```
-
-![tallysman3](https://github.com/indro-robotics/tallysman_ros2/assets/128490600/8e2966a7-eeab-4263-9336-2652a8be6cbe)
-
-- Next, Open your favourite web browser, and navigate to gps_maps.html, this will point your location
-![tallysman4](https://github.com/indro-robotics/tallysman_ros2/assets/128490600/021543d2-bf22-4336-bb18-b11032190e2b)
-
-- When you move around the area, you can see all the points where you have navigated. (Note: You need to refresh the browser every time you move)
-![tallysman5](https://github.com/indro-robotics/tallysman_ros2/assets/128490600/a64d5f7f-6260-4bda-ad56-82c8e89c9b9f)
+ When the above command is executed the tallysman_gps node is started in disabled configuration and you can see location data getting published onto `gps` topic.
+- Find the location data at http://localhost:8080
 
 - To view active topics:
 ![tallysman6](https://github.com/indro-robotics/tallysman_ros2/assets/128490600/15d5bd97-fad7-4944-b339-7ea77791b593)
 
-- All the latitude and longitude data will be stored in 'gps_history.json' file, you can find .json file in your ros directoy after running 'tallysman_gps_visualizer.py' node
+- All the latitude and longitude data will be stored in 'gps_history.json' file, you can find .json file in your ros directoy.
 
     ```
-   cd ~/test_ws
+   cd ~/humble_ws
   ```
 
 ## :camera_flash: Video
