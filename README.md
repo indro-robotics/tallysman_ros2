@@ -9,10 +9,10 @@ This repository contains the ROS2 package for integrating Tallysman GNSS 5790 an
 - [:hugs: Introduction](#hugs-introduction)
 - [:dizzy: Features](#dizzy-features)
 - [:envelope\_with\_arrow: Requirements](#envelope_with_arrow-requirements)
-- [:rocket: Installation](#rocket-installation)
 - [:bar_chart: Parameters](#bar_chart-parameters)
 - [:gear: Operating Modes](#gear-operating-modes)
 - [:computer: Udev Rule](#computer-udev-rule)
+- [:rocket: Installation](#rocket-installation)
 - [:books: Usage](#books-usage)
 - [:camera\_flash: Video](#camera_flash-video)
 - [:handshake: Contributing](#handshake-contributing)
@@ -51,44 +51,6 @@ sudo chmod a+rw <device_path>
   + IMP NOTE: Source your package every time you make change or open a new terminal. 
   + Else you will see Error like <<Package 'tallysman_ros2' not found>> even if you have cloned it.
   ```
-
-## :rocket: Installation
-
-To install Tallysman ROS2, follow these steps:
-
-1. **ROS Workspace:** Move to your ROS2 workspace (example: mine is humble_ws)
-
-   ```bash
-    cd ~/humble_ws/src
-    ```
-
-2. **Clone the repository:**
-
-    ```bash
-    git clone https://github.com/indro-robotics/tallysman_ros2.git
-    git clone https://github.com/indro-robotics/tallysman_msg.git
-    ```
-   
-3. **Build the package using colcon:**
-
-    ```bash
-    cd ~/humble_ws
-    colcon build
-    ```
-
-4. **source the setup file:**
-
-    ```bash
-    source install/setup.bash
-    ```
-
-5. Go to your project, and install requirements.txt for installing all the required libraries at once. (for exampe mine is under humble_ws/src/tallysman_ros2)
-
-    ```bash
-    cd humble_ws/src/tallysman_ros2
-    pip install -r requirements.txt
-      ```
-
 ## :bar_chart: Parameters
 
 These are the Parameters defined in the Tallysman Ros2 Node
@@ -188,6 +150,43 @@ sudo udevadm control --reload-rules && sudo udevadm trigger
 ```
 
 **Note:** Change the `usb_port` parameter of the launch files to `/dev/ttyUSB{kernel_number}` of the bidirectional port of the antenna if udev rule is not configured.
+
+## :rocket: Installation
+
+To install Tallysman ROS2, follow these steps:
+
+1. **ROS Workspace:** Move to your ROS2 workspace (example: mine is humble_ws)
+
+   ```bash
+    cd ~/humble_ws/src
+    ```
+
+2. **Clone the repository:**
+
+    ```bash
+    git clone https://github.com/indro-robotics/tallysman_ros2.git
+    git clone https://github.com/indro-robotics/tallysman_msg.git
+    ```
+   
+3. **Build the package using colcon:**
+
+    ```bash
+    cd ~/humble_ws
+    colcon build
+    ```
+
+4. **source the setup file:**
+
+    ```bash
+    source install/setup.bash
+    ```
+
+5. Go to your project, and install requirements.txt for installing all the required libraries at once. (for exampe mine is under humble_ws/src/tallysman_ros2)
+
+    ```bash
+    cd humble_ws/src/tallysman_ros2
+    pip install -r requirements.txt
+      ```
 
 ## :books: Usage
 
