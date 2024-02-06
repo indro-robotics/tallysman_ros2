@@ -27,7 +27,11 @@ Tallysman ROS2 is a ROS2 package that provides functionality for interfacing wit
 
 ### USB port
 
-To find the connected USB devices use command "ls /dev/ttyUSB*". If the udev rule is added you can find the tallysman antenna ports by command "ls /dev/Tallysman_USB*". Replace the `usb_port` parameter in the launch file with correct port name.
+To find the connected USB devices use command **`ls /dev/ttyUSB*`**. If the udev rule is added you can find the tallysman antenna ports by command **`ls /dev/Tallysman_USB*`**. Replace the **`usb_port`** parameter in the launch file with correct port name.
+To resolve permission errors with the devices use the **`chmod`** to gain access. Replace **`device_path`** with path of the device. Example **`/dev/ttyUSB0`**.
+```bash
+sudo chmod a+rw <device_path>
+```
 
 ## :dizzy: Features
 
@@ -45,7 +49,7 @@ To find the connected USB devices use command "ls /dev/ttyUSB*". If the udev rul
 
   ```diff
   + IMP NOTE: Source your package every time you make change or open a new terminal. 
-  + Else you will see Error like <<Package 'tallysman_ros2' not found>> even if you have clone it.
+  + Else you will see Error like <<Package 'tallysman_ros2' not found>> even if you have cloned it.
   ```
 
 ## :rocket: Installation
@@ -120,7 +124,7 @@ The Tallysman antenna can be operated in different modes based on configuration.
 
 ### Disabled Mode:
 
-- **Description:** This mode is under development and works as a standalone node.
+- **Description:** This mode works as a standalone node. Any tallysman antenna can work in this mode.
 - **Functionality:** Connects to the serial port of the Tallysman antenna and publishes GPS data (latitude and longitude) on the "gps" topic with the message type NavSatFix.
 - **Launch File:** `Tallysman_ros2/launch/tallysman_disabled.launch.py`
 - **Parameters:**
@@ -135,12 +139,12 @@ The Tallysman antenna can be operated in different modes based on configuration.
 
 ### Static_Base Mode:
 
-- **Description:** Under development (details not provided).
+- **Description:** Under development (details not provided). Tallysman antennas equipped with Zed-f9p will only work in this mode.
 - **Functionality:** Yet to be developed.
 
 ### Heading_Base Mode:
 
-- **Description:** Part of the moving baseline heading configuration.
+- **Description:** Part of the moving baseline configuration. Tallysman antennas equipped with Zed-f9p will only work in this mode.
 - **Functionality:** Connects to the serial port of the Tallysman antenna and publishes Rtcm corrections on the "rtcm_corrections" topic. This topic is intended for internal use by the respective rover nodes.
 - **Launch File:** `Tallysman_ros2/launch/tallysman_moving_baseline.launch.py`
 - **Parameters:**
@@ -155,7 +159,7 @@ The Tallysman antenna can be operated in different modes based on configuration.
 
 ### Rover Mode:
 
-- **Description:** Can be used in both moving baseline heading configuration and static baseline heading configuration.
+- **Description:** Can be used in both moving baseline configuration and static baseline configuration. Tallysman antennas equipped with Zed-f9p/Zed-f9r(Doesn't work in moving baseline configuration only f9p does) will only work in this mode.
 - **Functionality:** Connects to the serial port of the Tallysman antenna, subscribes to the "rtcm_corrections" topic created by the base node.
 - **Requirements:** Requires another node running with Heading_Base or Static_Base.
 - **Parameters:**
@@ -177,7 +181,7 @@ Ensure that this udev rule is added to the system configuration ( `/lib/udev/rul
 KERNEL=="ttyUSB*", SUBSYSTEMS=="usb", DRIVERS=="cp210x", ATTRS{interface}=="Standard Com Port", SYMLINK+="Tallysman_USB%n"
 ```
 
-After adding the rule run the below command to reload the udev rules without doing a reboot.
+After adding the rule, run the below command to reload the udev rules without doing a reboot.
 
 ```bash
 sudo udevadm control --reload-rules && sudo udevadm trigger
@@ -187,47 +191,47 @@ sudo udevadm control --reload-rules && sudo udevadm trigger
 
 ## :books: Usage
 
-Tallysman Ros2 package can be used in different configurations. Example launch files for different configurations can be found in the `launch` folder (`/src/tallysman_ros2/launch/`) of the Tallysman ROS2 package. The `tallysman_gps_visualizer` node is run alongside the `tallysman_gps` node to display the published location data.
+The Tallysman ROS2 package provides flexibility in its configurations, and example launch files for different setups can be found in the **`launch`** folder (**`/src/tallysman_ros2/launch/`**). The package includes the **`tallysman_gps_visualizer`** node, designed to run alongside the **`tallysman_gps`** node, enabling the visualization of the published location data. Ensure to change the **`usb_port`** parameter in the launch files to the desired bidirectional ports.
 
 ### RTK disabled configuration.
 
-- To use PPP-RTK corrections, make sure you have the config_file.json in place as mentioned in the PPP-RTK corrections setup section and parameters `use_corrections` is True and `config_path` is 'src/tallysman_ros2/pointperfect_files/config_file.json' and `region` is desired region. These three parameters are necessary for the PPP-RTK corrections.
-- After modifying the launch file build the workspace using `colcon build` and source the terminal using `source install/setup.bash`. You need to build and source it every time you change something in the launch file.
-- Launch the nodes using the command below.
+- Ensure the presence of the **`config_file.json`** in the designated location, as specified in the PPP-RTK corrections setup section.
+- Set the parameters in the launch file:
+  - **`use_corrections`** to True
+  - **`config_path`** to 'src/tallysman_ros2/pointperfect_files/config_file.json'
+  - **`region`** to the desired region
+- Build the workspace using **`colcon build`** and source the setup file with **`source install/setup.bash`** and your ROS setup. Repeat this step for any changes in the launch file.
+- Launch the nodes using the following command:
    ```
    ros2 launch tallysman_ros2 tallysman_disabled.launch.py
    ```
-- When the above command is executed the tallysman_gps node is started in disabled configuration and you can see location data getting published onto `gps` topic.
-- Also, The visualizer node is also started and you can visit http://localhost:8080 to see the location data mapped onto a map.
+- Upon execution, the **`tallysman_gps`** node starts in disabled configuration, publishing location data to the **`gps`** topic.
+- The visualizer node is also initiated, and you can view the mapped location data at **http://localhost:8080**.
 
-- **Note**: Default port_number of visualizer node is 8080 but you can change it by modifying the `port` parameter of the launch file.
+- **Note**: You can modify the default port number (8080) of the visualizer node by adjusting the **`port`** parameter in the launch file.
 
 ### RTK-Moving Baseline configuration:
 
-Moving Baseline configuration requires two tallysman antennas (One base, one rover). Only antennas with Zed-f9p chips can act as Base and Antennas with both ZED-F9P/ ZED-F9R chips can act as Rover.
+For the RTK-Moving Baseline configuration, which involves two Tallysman antennas (one base and one rover), and only antennas with Zed-f9p chips acting as the base:
 
-- Follow similar steps of RTK disabled configuration and make necessary changes to the launch file
-- Build and source the terminal
-- Launch the nodes using the command below.
+- Follow similar steps as the RTK disabled configuration and make necessary changes to the launch file.
+- Build and source the terminal.
+- Launch the nodes with the command:
 
    ```
    ros2 launch tallysman_ros2 tallysman_moving_baseline.launch.py
    ```
- When the above command is executed the tallysman_gps node is started in disabled configuration and you can see location data getting published onto `gps` topic.
-- Find the location data at http://localhost:8080
+- Upon execution, the tallysman_gps nodes start in Base and Rover modes in moving baseline configuration, publishing location data to the **`gps`** topic and extended information like heading, quality and accuracies to **`gps_extended`** topics.
+- Access the location data at **http://localhost:8080**.
+- Ensure to have clear skies to get good precision values.
 
-- To view active topics:
-![tallysman6](https://github.com/indro-robotics/tallysman_ros2/assets/128490600/15d5bd97-fad7-4944-b339-7ea77791b593)
-
-- All the latitude and longitude data will be stored in 'gps_history.json' file, you can find .json file in your ros directoy.
-
-    ```
-   cd ~/humble_ws
-  ```
+To view active topics use command
+```bash
+ros2 topic list
+```
 
 ## :camera_flash: Video
 
-<https://github.com/indro-robotics/tallysman_ros2/assets/128490600/bf561eb6-1bd1-4250-8b38-5b735d711047>
 
 ## :handshake: Contributing
 
