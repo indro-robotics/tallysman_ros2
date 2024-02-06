@@ -12,6 +12,7 @@ This repository contains the ROS2 package for integrating Tallysman GNSS 5790 an
 - [:bar_chart: Parameters](#bar_chart-parameters)
 - [:gear: Operating Modes](#gear-operating-modes)
 - [:computer: Udev Rule](#computer-udev-rule)
+- [:round_pushpin: PointPerfect Setup](#round_pushpin-pointperfect-setup)
 - [:rocket: Installation](#rocket-installation)
 - [:books: Usage](#books-usage)
 - [:camera\_flash: Video](#camera_flash-video)
@@ -42,7 +43,7 @@ sudo chmod a+rw <device_path>
 
 ## :envelope_with_arrow: Requirements
 
-- [Tallymatics Antenna](https://tallymatics.com/product/tw5390/)
+- [Tallysman Antenna](https://tallymatics.com/product/tw5390/)
 - [Ubuntu 22](https://indrorobotics.notion.site/Installing-Dual-OS-and-upgrade-laptop-SSD-0d7c4b8ee9d54e14bbeb9f7ac24f8079?pvs=4)
 - [ROS2 (Humble)](https://www.notion.so/indrorobotics/Getting-Started-with-ROS2-a3960c906f0d46789cd1d7b329784dd0)
 - [Python](https://docs.python.org/3/)
@@ -150,6 +151,16 @@ sudo udevadm control --reload-rules && sudo udevadm trigger
 ```
 
 **Note:** Change the `usb_port` parameter of the launch files to `/dev/ttyUSB{kernel_number}` of the bidirectional port of the antenna if udev rule is not configured.
+
+## :round_pushpin: PointPerfect Setup
+
+To achieve centimeter-level accuracy in real-time, PPP-RTK corrections are essential. These corrections can be obtained through the Pointperfect subscription service, accessible at **`https://www.u-blox.com/en/product/pointperfect`**. Follow the steps below to acquire and configure the necessary files:
+- Visit the website to subscribe to the Pointperfect service.
+- Once subscribed, navigate to the "Credentials" tab under the "Location Thing Details" section on the website.
+- Download the ucenter configuration file provided and rename it to **`ucenter-config.json`**.
+- Create a new folder named **`pointperfect_files`** at the following directory: **`humble_ws/src/tallysman_ros2/pointperfect_files/`**.
+- Place the **`ucenter-config.json`** file inside the newly created **`pointperfect_files`** folder.
+- When you run the node, it will generate several files within the **`pointperfect_files`** folder, which are necessary for establishing a connection to the subscription service.
 
 ## :rocket: Installation
 
