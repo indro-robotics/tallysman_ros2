@@ -1,159 +1,227 @@
+import time
+from typing import Literal
 import rclpy
+import sys
+import base64
 from rclpy.node import Node
 from sensor_msgs.msg import NavSatFix
-import serial
+from std_msgs.msg import Header
 import threading
-import time
-from queue import Queue
-import sys
-from rclpy.parameter import Parameter
-class TallysmanGPSPublisher(Node):
-    def __init__(self):
-        super().__init__('tallysman_gps_publisher')
- 
-        self.declare_parameter('usb_port','/dev/ttyUSB0')
+from scripts.pointperfect_module import PointPerfectModule
+from scripts.serial_module import UbloxSerial
+from pynmeagps import NMEAMessage
+from pyrtcm import RTCMMessage, RTCMReader
+from tallysman_msg.msg import GnssSignalStatus, RtcmMessage
+from scripts.logging import Logger, LoggingLevel, SimplifiedLogger
+
+class TallysmanGps(Node):
+    def __init__(self, mode:Literal['Disabled', 'Heading_Base', 'Rover']='Disabled') -> None:
+        super().__init__('tallysman_gps')
+        
+        internal_logger = Logger(self.get_logger())
+        #region Parameters declaration
+        self.declare_parameter('usb_port','/dev/ttyUSB1')
         self.declare_parameter('baud_rate', 230400)
-        self.declare_parameter('topic_name', 'gps_data')
- 
+        self.declare_parameter('use_corrections', True) # Parameter {config_path} needs to be present if this is True.
+        self.declare_parameter('region', 'us') # The region where antenna is present. Parameter only needed when use_corrections is True
+        self.declare_parameter('config_path', '/root/humble_ws/src/tallysman_ros2/pointperfect_files/ucenter-config.json') # The path where the corrections_config is placed. Parameter only needed when use_corrections is True
+        self.declare_parameter('save_logs', False)
+        self.declare_parameter('log_level', LoggingLevel.Info)
+        #endregion
+
+        #region Parameters Initialization
+        self.usb_port = self.get_parameter('usb_port').get_parameter_value().string_value
+        self.baud_rate = self.get_parameter('baud_rate').get_parameter_value().integer_value
+        self.use_corrections = self.get_parameter("use_corrections").get_parameter_value().bool_value
+        self.region = self.get_parameter("region").get_parameter_value().string_value
+        self.config_path = self.get_parameter("config_path").get_parameter_value().string_value
+        self.save_logs = self.get_parameter("save_logs").get_parameter_value().bool_value
+        self.log_level : LoggingLevel = LoggingLevel(self.get_parameter("log_level").get_parameter_value().integer_value)
+        self.mode : Literal['Disabled', 'Heading_Base', 'Rover'] = mode
+        #endregion
+
+        self.process_thread = threading.Thread(target=self.__process, name='tallysman_gps_process', daemon=True)
+        self.process_thread.start()
+
+        internal_logger.toggle_logs(self.save_logs)
+        internal_logger.setLevel(self.log_level)
+        self.logger = SimplifiedLogger(self.mode+'_GPS')
+        self.ser = UbloxSerial(self.usb_port, self.baud_rate, self.mode, self.use_corrections)
+
+        #region Conditional attachments to events based on rover/base
+        if self.mode == 'Heading_Base':
+            # Publisher to publish RTCM corrections to Rover
+            self.rtcm_publisher = self.create_publisher(RtcmMessage, 'rtcm_corrections', 50)
+            self.ser.rtcm_message_found += self.handle_rtcm_message
+            pass
+        elif self.mode == 'Rover':
+            # Subscriber for receiving RTCM corrections from base.
+            self.rtcm_subscriber = self.create_subscription(RtcmMessage, 'rtcm_corrections', self.handle_rtcm_message, 50)
+            # Publisher for location information. Taking location from rover since it is more accurate.
+            self.publisher = self.create_publisher(NavSatFix, 'gps', 50)
+            # Publisher for location information. Taking location from rover since it is more accurate.
+            self.status_publisher = self.create_publisher(GnssSignalStatus, 'gps_extended', 50)
+            # Timer to poll status messages from base/rover for every sec.
+            self.status_timer = self.create_timer(1, self.get_status)
+            pass
+        elif self.mode =='Disabled':
+            # Publisher for location information. Taking location from rover since it is more accurate.
+            self.publisher = self.create_publisher(NavSatFix, 'gps', 50)
+            # Publisher for location information. Taking location from rover since it is more accurate.
+            self.status_publisher = self.create_publisher(GnssSignalStatus, 'gps_extended', 50)
+            # Timer to poll status messages from base/rover for every sec.
+            self.status_timer = self.create_timer(1, self.get_status)
+            pass
+            
+        # Establishing Pointperfect connection only if it's enabled. Required parameters needs to be sent.
+        if self.use_corrections:
+            self.pp = PointPerfectModule(self.config_path, self.region)
+            # self.ser.add_to_poll('RXM', 'RXM-SPARTN-KEY') # this is needed to periodically check for keys and reconnect to pointperfect
+            self.pp.on_correction_message += self.handle_correction_message
+            self.reconnect_timer = self.create_timer(30, self.__reconnect_pointperfect_if_needed)
+        
+        #endregion
+
+        self.lock = threading.Lock()
+
+        # Timer to poll status messages from base/rover for every sec.
+        # self.timer = self.create_timer(1, self.ser.poll)
+
+        pass
+
+    """
+        Handles the correction messages received from PointPerfect MQTT connection.
+
+        The decoding of correction messages and applying them to the location is done by the antenna itself.
+        Need to make sure we send entire message to the antenna without a delay, Since the correction messages are time dependent.
+    """
+    def handle_correction_message(self, message) -> None:
+        self.logger.debug(message= "Sending correction message: " + message.hex(' '))
+        self.ser.send(message)
+        pass
+    
+    """
+        Handles the received NMEAMessage.
+
+        Location information is taken from RMC and GGA messages and published to the {topic_name} topic via NavSatFix message
+    """
+    def handle_nmea_message(self, nmeaMessage: NMEAMessage) -> None:
+        if nmeaMessage.identity == "GNRMC" or nmeaMessage.identity == "GNGGA":
+            latitude = nmeaMessage.lat if nmeaMessage.lat else None
+            longitude = nmeaMessage.lon if nmeaMessage.lon else None
+            if latitude is not None and longitude is not None:
+                msg = NavSatFix()
+                msg.latitude = float(latitude)
+                msg.longitude = float(longitude)
+                self.publisher.publish(msg)
+                self.logger.info('Published GPS data - Latitude: {:.6f}, Longitude: {:.6f}'.format(latitude, longitude))           
+        pass
+    
+    """
+        Handles received RTCM message. 
+        
+        If the antenna is base, The received RTCM message is from antenna and is published to the {rtcm_topic_name} topic via ByteMultiArray message.
+        If the antenna is rover, The received RTCM message is from {rtcm_topic_name} topic via ByteMultiArray message and is sent to the antenna through serial port.
+    """
+    def handle_rtcm_message(self, rtcmMessage) -> None:
+        if self.mode == 'Heading_Base':
+            msg = RtcmMessage()
+            encoded_msg = base64.b64encode(rtcmMessage.serialize()).decode()
+            msg.identity = rtcmMessage.identity
+            msg.payload = encoded_msg
+            self.rtcm_publisher.publish(msg)
+            self.logger.info('Published RTCM message with identity: ' + rtcmMessage.identity) 
+        else:
+            data = base64.b64decode(rtcmMessage.payload.encode())
+            rmg = RTCMReader.parse(data)
+            self.ser.send(rmg.serialize())
+            self.logger.info('Received RTCM message with identity: ' + rmg.identity)
+        pass
+
+    def get_status(self) -> None:
+        status = self.ser.get_status()
+        
+        header = Header()
+        header.stamp = self.get_clock().now().to_msg()
+        header.frame_id = 'gps'
+        status.header = header
+        self.status_publisher.publish(status)
+        if status.latitude is not None and status.longitude is not None:
+            msg = NavSatFix()
+            msg.header = header
+            msg.latitude = status.latitude
+            msg.longitude = status.longitude
+            msg.altitude = status.altitude
+            msg.position_covariance = status.position_covariance
+            msg.position_covariance_type = status.position_covariance_type
+            msg.status = status.status
+            self.publisher.publish(msg)
+            self.logger.info('Published GPS data - Latitude: {:.6f}, Longitude: {:.6f}'.format(status.latitude, status.longitude))    
+        pass
+    
+    """
+        This is a continuous loop to check for any parameter updates in runtime.
+    """
+    def __process(self) -> None:
+        while(rclpy.ok()):
+            # Checking if the parameter values are changed from start.
+            # serial parameters check.
+            if (self.usb_port != self.get_parameter('usb_port').get_parameter_value().string_value) or (self.baud_rate != self.get_parameter('baud_rate').get_parameter_value().integer_value):
+                self.logger.info("Parameters Updated. Port:"+ self.get_parameter('usb_port').get_parameter_value().string_value + ", Baud Rate: " + str(self.get_parameter('baud_rate').get_parameter_value().integer_value))
+                if self.__reconfig_serial_module():
+                    self.logger.info("Port reconfigured.")
+                    self.usb_port = self.get_parameter('usb_port').get_parameter_value().string_value
+                    self.baud_rate = self.get_parameter('baud_rate').get_parameter_value().integer_value
+                else:
+                    self.logger.warn("Port not reconfigured.")
+            
+            if (self.save_logs != self.get_parameter('save_logs').get_parameter_value().bool_value):
+                self.save_logs = self.get_parameter('save_logs').get_parameter_value().bool_value
+                Logger().toggle_logs(self.save_logs)
+
+            if (self.log_level != self.get_parameter('log_level').get_parameter_value().integer_value):
+                log_level = self.get_parameter('log_level').get_parameter_value().integer_value
+                if Logger().setLevel(log_level):
+                    self.log_level = log_level
+            time.sleep(10)
+        pass
+    
+    """
+        This method is called when serial parameters are changed in runtime. Serial module is reconfigured.
+    """
+    def __reconfig_serial_module(self) -> bool:
         usb_port = self.get_parameter('usb_port').get_parameter_value().string_value
         baud_rate = self.get_parameter('baud_rate').get_parameter_value().integer_value
-        topic_name = self.get_parameter("topic_name").get_parameter_value().string_value
+        return self.ser.reconfig_serial_port(usb_port, baud_rate)
 
- 
-        self.publisher_ = self.create_publisher(NavSatFix, topic_name, 50)
-        self.ser = serial.Serial(usb_port, baud_rate)
-        self.lock = threading.Lock()
-        self.data_queue = Queue()
- 
-        # Create a timer that calls the 'publish_gps_data' method every 0.1 seconds (10 Hz).
-        self.timer = self.create_timer(0.05, self.publish_gps_data)
- 
-        # Start a separate thread for reading and parsing GPS data
-        self.read_thread = threading.Thread(target=self.read_and_parse_data)
-        self.read_thread.daemon = True  # Allow the thread to be terminated when the main program exits
-        self.read_thread.start()
- 
+    # def __reconfig_pointperfect_module(self) -> bool:
+    #     self.use_corrections = self.get_parameter("use_corrections").get_parameter_value().bool_value
+    #     if self.use_corrections:
+    #         self.pp = PointPerfectModule(self.config_path, self.region)
+    #         self.pp.on_correction_message += self.handle_correction_message  
+    #     else:
+    #         self.pp.shutdown()
+    #         self.pp.on_correction_message -= self.handle_correction_message
+    #         self.pp = None
+    #         pass
+    
+    """
+        Spartn keys are checked in the antenna. if no keys are present, pointperfect is reconnected to get a new pair of keys.
+    """
+    def __reconnect_pointperfect_if_needed(self):
+        if self.use_corrections:
+            sptn_key = self.ser.get_recent_ubx_message('RXM-SPARTN-KEY')
+            if sptn_key is not None and sptn_key.numKeys == 0:
+                self.pp.reconnect()
+                pass
         
- 
-    def read_and_parse_data(self):
-        while rclpy.ok():
-            try:
-                data = self.ser.readline().decode('utf-8', errors='ignore').strip()
-                if data:
-                    self.data_queue.put(data)
-            except UnicodeDecodeError:
-                self.get_logger().warn('Ignoring invalid characters in received data.')
- 
- 
-    def publish_gps_data(self):
-        while not self.data_queue.empty():
-            data = self.data_queue.get()
-            with self.lock:
-                if data.startswith('$GNGGA'):
-                    latitude, longitude = parse_nmea_gga(data)
-                elif data.startswith('$GNRMC'):
-                    latitude, longitude = parse_nmea_rmc(data)
-                else:
-                    latitude, longitude = None, None
- 
-                if latitude is not None and longitude is not None:
-                    msg = NavSatFix()
-                    msg.latitude = latitude
-                    msg.longitude = longitude
-                    self.publisher_.publish(msg)
-                    current_time = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
-                    self.get_logger().info('[{}] Published GPS data - Latitude: {:.6f}, Longitude: {:.6f}'.format(current_time, latitude, longitude))
- 
-def parse_nmea_gga(data):
-    # Your existing parse_nmea_gga function here
-     
-    # Split the NMEA GGA data into individual parts using comma (,) as the delimiter
-    parts = data.split(',')
- 
-    # Check if the data contains at least 10 parts and the necessary fields for latitude and longitude extraction
-    if len(parts) >= 10 and parts[2] and parts[4] and parts[9]:
-     
-        # Extract the latitude and longitude values from their respective parts and convert them to decimal degrees formate
-        latitude = float(parts[2]) / 100
-        longitude = float(parts[4]) / 100
- 
-        # convert to parsed lat
-        degrees = int(latitude)
-        minutes = 100 *(latitude -degrees) / 60
-        latitude = float(degrees + minutes)
- 
-        # convert to parsed long
-        degrees = int(longitude)
-        minutes = 100* (longitude -degrees) / 60
-        longitude = float(degrees + minutes)
-     
-        # Get the latitude and longitude directions (North/South and East/West).
-        lat_direction = parts[3]
-        lon_direction = parts[5]
-     
-        # Check if the latitude is in the Southern hemisphere and negate it if necessary.
-        if lat_direction == 'S':
-            latitude = -latitude
-         
-        # Check if the longitude is in the Western hemisphere and negate it if necessary.
-        if lon_direction == 'W':
-            longitude = -longitude
-         
-        # Return the parsed GPS latitude and longitude as a tuple
-        return latitude, longitude
-    else:
-        # Return None for latitude and longitude if the necessary fields are not present in the data.
-        return None, None
- 
- 
-def parse_nmea_rmc(data):
-    # Your existing parse_nmea_rmc function here
- 
-    # Split the NMEA RMC data into individual parts using comma (,) as the delimiter.
-    parts = data.split(',')
- 
-    # Check if the data contains at least 7 parts and the necessary fields for latitude and longitude extraction.
-    if len(parts) >= 7 and parts[3] and parts[5] and parts[9]:
- 
-        # Extract the latitude and longitude values from their respective parts and convert them to decimal degrees format.
-        latitude = float(parts[3]) / 100
-        longitude = float(parts[5]) / 100
- 
-        # convert to parsed lat
-        degrees = int(latitude)
-        minutes = 100 *(latitude -degrees) / 60
-        latitude = float(degrees + minutes)
- 
-        # convert to parsed long
-        degrees = int(longitude)
-        minutes = 100* (longitude -degrees) / 60
-        longitude = float(degrees + minutes)
-        # Get the latitude and longitude directions (North/South and East/West).
-        lat_direction = parts[4]
-        lon_direction = parts[6]
- 
-        # Check if the latitude is in the Southern hemisphere and negate it if necessary.
-        if lat_direction == 'S':
-            latitude = -latitude
-         
-        # Check if the longitude is in the Western hemisphere and negate it if necessary.
-        if lon_direction == 'W':
-            longitude = -longitude
- 
-        # Return the parsed GPS latitude and longitude as a tuple.
-        return latitude, longitude
- 
-    else:
-        # Return None for latitude and longitude if the necessary fields are not present in the data.
-        return None, None
- 
- 
-def main(args=None):
-    rclpy.init(args=args)
-    tallysman_gps_publisher = TallysmanGPSPublisher()
-    rclpy.spin(tallysman_gps_publisher)
-    tallysman_gps_publisher.destroy_node()
+def main():
+    rclpy.init()
+    args = rclpy.utilities.remove_ros_args(sys.argv)
+    tallysman_gps = TallysmanGps(mode=args[1])
+    rclpy.spin(tallysman_gps)
+    tallysman_gps.destroy_node()
     rclpy.shutdown()
- 
+
 if __name__ == '__main__':
     main()

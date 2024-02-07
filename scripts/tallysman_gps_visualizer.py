@@ -7,25 +7,37 @@ import threading
 import http.server
 import socketserver
 import json
+from http.server import BaseHTTPRequestHandler, HTTPServer
+
+class GpsDataRequestHandler(BaseHTTPRequestHandler):
+
+    def __init__(self, node, *args, **kwargs):
+        self.node = node
+        super().__init__(*args, **kwargs)
+
+    def do_GET(self):
+        map_content = self.node.generate_map()
+        
+        self.send_response(200)
+        self.send_header('Content-type', 'text/html')
+        self.end_headers()
+        # Send the Folium map HTML as the response
+        self.wfile.write(map_content.encode())
 
 class GPSDataSubscriber(Node):
+
     def __init__(self):
         super().__init__('gps_data_subscriber')
-        self.subscription = self.create_subscription(NavSatFix, 'tallysman_gps_data', self.callback, 10)
-        self.map_file = 'gps_map.html'
-        self.history = []  # List to store historical GPS data points
+        self.subscription = self.create_subscription(NavSatFix, 'gps', self.callback, 10)
+        
+        self.declare_parameter('port', 8080)
+        self.port = self.get_parameter('port').get_parameter_value().integer_value
+        # Your node initialization code goes here
+        self.history: list = []
 
-        # Load historical GPS data from file, if available
-        self.load_history()
-
-    def load_history(self):
-        if os.path.exists('gps_history.json'):
-            with open('gps_history.json', 'r') as history_file:
-                self.history = json.load(history_file)
-
-    def save_history(self):
-        with open('gps_history.json', 'w') as history_file:
-            json.dump(self.history, history_file)
+        http_server_thread = threading.Thread(target=self.start_server)
+        http_server_thread.daemon = True
+        http_server_thread.start()
 
     def callback(self, msg):
         latitude = msg.latitude
@@ -33,41 +45,44 @@ class GPSDataSubscriber(Node):
 
         if latitude != 0.0 and longitude != 0.0:  # Filter out invalid GPS data
             # Add the current GPS data point to the history
-            self.history.append((latitude, longitude))
+            self.history.append([latitude, longitude])
 
-            # Save the historical GPS data to a file
-            self.save_history()
+    def start_server(self):
+        server_address = ('', self.port)
+        httpd = HTTPServer(server_address, lambda *args, **kwargs: GpsDataRequestHandler(self, *args, **kwargs))
+        print(f"Starting visualizer at http://localhost:{self.port}")
 
-            # Remove the previous map file if it exists
-            if os.path.exists(self.map_file):
-                os.remove(self.map_file)
+        try:
+            httpd.serve_forever()
+        except KeyboardInterrupt:
+            pass
+        finally:
+            httpd.server_close()
 
-            # Create a new map centered on the current GPS coordinates
-            new_map = folium.Map(location=[latitude, longitude], zoom_start=10)
+    def generate_map(self):
+        if len(self.history) > 0:
+            [latitude, longitude] = self.history.pop()
+            # Create a Folium map object
+            map = folium.Map(location=[latitude, longitude], zoom_start=50)
 
-            # Add markers for all historical points with smaller icons
             for lat, lon in self.history:
-                folium.Marker([lat, lon], icon=folium.Icon(icon='cloud', color='blue')).add_to(new_map)
+                folium.Marker([lat, lon], icon=folium.Icon(icon='cloud', color='blue')).add_to(map)
+        else:
+            map = folium.Map()
+        # Save the map to an HTML string
+        map_html = map.get_root().render()
 
-            # Save the new map to an HTML file
-            new_map.save(self.map_file)
+        return f'<!DOCTYPE html><html><head><title>GPS Location</title></head><body>{map_html}</body></html>'    
 
-def start_http_server():
-    # Start a simple HTTP server to serve the map
-    handler = http.server.SimpleHTTPRequestHandler
-    with socketserver.TCPServer(("localhost", 8000), handler) as httpd:
-        httpd.serve_forever()
 
 def main(args=None):
     rclpy.init(args=args)
     gps_data_subscriber = GPSDataSubscriber()
-    http_server_thread = threading.Thread(target=start_http_server)
-    http_server_thread.daemon = True
-    http_server_thread.start()
-    rclpy.spin(gps_data_subscriber)
-    gps_data_subscriber.destroy_node()
-    rclpy.shutdown()
+    try:
+        rclpy.spin(gps_data_subscriber)
+    finally:
+        gps_data_subscriber.destroy_node()
+        rclpy.shutdown()
 
 if __name__ == '__main__':
     main()
-
