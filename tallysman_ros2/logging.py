@@ -1,6 +1,5 @@
 from enum import Enum, IntEnum
 import os
-import rclpy
 import datetime
 # from rclpy.impl import RcutilsLogger
 

@@ -1,15 +1,11 @@
-import logging
 import os
 from textwrap import wrap
-import threading
 from typing import Literal
 import paho.mqtt.client as mqtt
-import rclpy
-import time
 from events import Event
 import json
 
-from scripts.logging import SimplifiedLogger
+from tallysman_ros2.logging import SimplifiedLogger
 
 """
     This class is responsible to get all the fields required to make an MQTT connection for the PointPerfect correction messages.

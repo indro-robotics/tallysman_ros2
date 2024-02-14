@@ -2,11 +2,7 @@ import rclpy
 from rclpy.node import Node
 from sensor_msgs.msg import NavSatFix
 import folium
-import os
 import threading
-import http.server
-import socketserver
-import json
 from http.server import BaseHTTPRequestHandler, HTTPServer
 
 class GpsDataRequestHandler(BaseHTTPRequestHandler):

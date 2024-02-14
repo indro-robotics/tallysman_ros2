@@ -7,12 +7,12 @@ from rclpy.node import Node
 from sensor_msgs.msg import NavSatFix
 from std_msgs.msg import Header
 import threading
-from scripts.pointperfect_module import PointPerfectModule
-from scripts.serial_module import UbloxSerial
+from tallysman_ros2.pointperfect_module import PointPerfectModule
+from tallysman_ros2.serial_module import UbloxSerial
 from pynmeagps import NMEAMessage
-from pyrtcm import RTCMMessage, RTCMReader
+from pyrtcm import RTCMReader
 from tallysman_msg.msg import GnssSignalStatus, RtcmMessage
-from scripts.logging import Logger, LoggingLevel, SimplifiedLogger
+from tallysman_ros2.logging import Logger, LoggingLevel, SimplifiedLogger
 
 class TallysmanGps(Node):
     def __init__(self, mode:Literal['Disabled', 'Heading_Base', 'Rover']='Disabled') -> None:

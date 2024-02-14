@@ -28,7 +28,7 @@ setup(
     name=package_name,
     version='0.0.0',
     packages=find_packages(),
-    data_files=data_files,#package_files(data_files,['launch/', 'params/']),
+    data_files=package_files(data_files,['launch/', 'params/']),
     install_requires=[
         'setuptools<=58.2.0',
         'cs-events',
@@ -38,7 +38,6 @@ setup(
         'pyserial',
         'sensor_msgs'
         ],
-    scripts=['scripts/logging.py', 'scripts/pointperfect_module.py','scripts/serial_module.py'],
     zip_safe=True,
     maintainer='pkgodugunuri',
     maintainer_email='pavan.godugunuri@gmail.com',
