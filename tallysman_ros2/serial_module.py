@@ -8,9 +8,9 @@ import rclpy
 from pyubx2 import ubxreader, UBXMessage, GET, SET, POLL
 from pynmeagps import NMEAMessage
 from pyrtcm import RTCMMessage
-from tallysman_msg.msg import GnssSignalStatus, GnssLocation
+from tallysman_msg.msg import GnssSignalStatus
 from sensor_msgs.msg import NavSatStatus
-from scripts.logging import SimplifiedLogger
+from tallysman_ros2.logging import SimplifiedLogger
 
 class UbloxSerial:
     """
@@ -30,6 +30,8 @@ class UbloxSerial:
         self.__rtk_mode = rtk_mode
         self.__use_corrections = use_corrections
         self.__recent_ubx_message = dict[str,(float,UBXMessage)]()
+        self.__latitude = None
+        self.__longitude = None
         self.__setup_serial_port_and_reader(port_name, baudrate)
         self.runTime = 0
         # self.__poll_messages: set[tuple[str,str]] = set()
@@ -89,6 +91,7 @@ class UbloxSerial:
             self.__is_running = True
             # Configurations to antenna to work in a specified mode.
             self.config()
+            self.__service_constellations = self.__get_service_constellations()
             pass
         except serial.SerialException as se:
             self.logger.error(se.strerror)
@@ -262,6 +265,7 @@ class UbloxSerial:
             self.logger.error("Configuration failed.")
         return config_successful
 
+
     """
         returns the Rover/Base status. Currently returning only Rover status. Will improve this further.
     """
@@ -308,7 +312,7 @@ class UbloxSerial:
                 else:
                     status.status = NavSatStatus.STATUS_NO_FIX
                 
-                status.service = NavSatStatus.SERVICE_GALILEO | NavSatStatus.SERVICE_GLONASS | NavSatStatus.SERVICE_GPS | NavSatStatus.SERVICE_COMPASS
+                status.service = self.__service_constellations
                 gnss_status.status = status
                 gnss_status.quality = self.__get_quality_string(nav_pvt)
         except Exception as ex:
@@ -387,6 +391,29 @@ class UbloxSerial:
             
         return config_data
 
+    def __get_service_constellations(self) -> int:
+        gnss_config_poll : UBXMessage = UBXMessage.config_poll(0 , 0, ['CFG_SIGNAL_GPS_ENA', 'CFG_SIGNAL_GLO_ENA', 'CFG_SIGNAL_BDS_ENA', 'CFG_SIGNAL_GAL_ENA'])
+        gnss_config_msg = None
+        retry_count = 0
+        while gnss_config_msg is None and retry_count < 3:
+            self.send(gnss_config_poll.serialize())
+            time.sleep(0.5)
+            gnss_config_msg = self.get_recent_ubx_message('CFG-VALGET')
+            retry_count = retry_count + 1
+            pass
+        if gnss_config_msg is None:
+            self.logger.error("Antenna is not responding.")
+        service_constellations:int = 0
+        if gnss_config_msg.CFG_SIGNAL_GPS_ENA == 1:
+            service_constellations = service_constellations | NavSatStatus.SERVICE_GPS
+        if gnss_config_msg.CFG_SIGNAL_GLO_ENA == 1:
+            service_constellations = service_constellations | NavSatStatus.SERVICE_GLONASS
+        if gnss_config_msg.CFG_SIGNAL_BDS_ENA == 1:
+            service_constellations = service_constellations | NavSatStatus.SERVICE_COMPASS
+        if gnss_config_msg.CFG_SIGNAL_GAL_ENA == 1:
+            service_constellations = service_constellations | NavSatStatus.SERVICE_GALILEO 
+        return service_constellations
+    
     def __save_boot_times(self, time_in_sec: int):
         with open(self.__rtk_mode + '_boot_times.txt', 'a') as log_file:
             log_file.write("\nAntenna Rebooted after sec: " + str(time_in_sec))
