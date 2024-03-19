@@ -18,16 +18,13 @@ def generate_launch_description():
     return LaunchDescription([
         Node(
             package='tallysman_ros2',
-            executable='tallysman_gps',
-            name='base',
+            executable='remote_rtcm_corrections_handler',
+            name='rtcm_handler',
             output='screen',
-            emulate_tty=True,
+            emulate_tty=False,
             parameters=[
-                {'baud_rate': 230400},
-                {'unique_id':'EA 41 EA 98 9A'},
-                {'use_corrections': True},
-                {'config_path': 'src/tallysman_ros2/pointperfect_files/ucenter-config.json'},
-                {'region': 'us'},
+                {'key':'Wap5SA.O5VD4g:t2ltWLfva3gp5kituU5M4f9JL83BIwioTV1hGOjrSLU'},
+                {'channel': 'Rtcm1'},
                 {'save_logs': False},
                 {'log_level': 20}
             ],
@@ -35,8 +32,6 @@ def generate_launch_description():
             remappings=[
                 ('rtcm_corrections','rtcm_topic')
             ],
-            
-            arguments=['Heading_Base']
         ),
         Node(
             package='tallysman_ros2',
@@ -46,7 +41,7 @@ def generate_launch_description():
             emulate_tty=True,
             parameters=[
                 {'baud_rate': 230400},
-                {'usb_port':'DA 4C DA 89 18'},
+                {'unique_id':'EA 41 EA 98 9A'},
                 {'use_corrections': False},
                 {'save_logs': False},
                 {'log_level': 20}

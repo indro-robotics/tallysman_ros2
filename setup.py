@@ -47,7 +47,8 @@ setup(
     entry_points={
         'console_scripts': [
             "tallysman_gps = tallysman_ros2.tallysman_gps:main",
-            "tallysman_gps_visualizer = tallysman_ros2.tallysman_gps_visualizer:main"
+            "tallysman_gps_visualizer = tallysman_ros2.tallysman_gps_visualizer:main",
+            "remote_rtcm_corrections_handler = tallysman_ros2.remote_rtcm_corrections_handler:main"
         ],
     },
 )
