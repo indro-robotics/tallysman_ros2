@@ -63,8 +63,7 @@ class RemoteRtcmCorrectionsHandler(Node):
         pass
     
     def __process_incoming_messages(self, message: Message):
-        # self.logger.info("Message received : " + message.data) 
-        
+        self.logger.info("Message received : " + message.data) 
         try:
             for msg in message.data:
                 rtcmMessage = RTCMReader.parse(base64.b64decode(msg))
@@ -75,6 +74,7 @@ class RemoteRtcmCorrectionsHandler(Node):
                 self.logger.info("RTCM message with identity " + rtcmMessage.identity)
             pass
         except:
+            self.logger.error("Exception while processing received message. message skipped.")
             pass
 
 def main():

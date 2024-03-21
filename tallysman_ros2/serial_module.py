@@ -15,13 +15,15 @@ from sensor_msgs.msg import NavSatStatus
 from tallysman_ros2.logging import SimplifiedLogger
 import concurrent.futures
 
-# logger:SimplifiedLogger = SimplifiedLogger('Serial')
-
-
 class SerialUtilities:
 
+    """
+        Extracts unique id of the given port.
+        
+        returns port if found with in timeout, Empty string otherwise
+    """
     @staticmethod
-    def get_port_unique_id(standard_port: serial.Serial, timeout: int) -> str:
+    def extract_unique_id_of_port(standard_port: serial.Serial, timeout: int) -> str:
         current_time = time.time()
         reader = ubxreader.UBXReader(standard_port, protfilter=2)
         standard_port.write(UBXMessage('SEC', 'SEC-UNIQID', POLL).serialize())
@@ -34,6 +36,9 @@ class SerialUtilities:
                 return ''
         return ''
     
+    """
+        Finds out the serial port which has antenna connected with the given unique id
+    """
     @staticmethod
     def get_port_from_unique_id(unique_id: str, baudrate: Literal[1200, 2400, 4800, 9600, 19200, 38400, 57600, 115200, 230400, 460800])-> str:
         port_name = ''
@@ -45,7 +50,7 @@ class SerialUtilities:
                     if port.description.find("Standard") != -1 and not port_name:
                         try:
                             standard_port = serial.Serial(port.device, baudrate)
-                            thread = executor.submit(SerialUtilities.get_port_unique_id, standard_port = standard_port, timeout = 3)
+                            thread = executor.submit(SerialUtilities.extract_unique_id_of_port, standard_port = standard_port, timeout = 3)
                             unique_id_of_port = thread.result(3)
                             if unique_id_of_port.upper() == unique_id.upper():
                                 port_name = port.device
@@ -65,7 +70,7 @@ class SerialUtilities:
                 for port in failed_ports:
                     try:
                         standard_port = serial.Serial(port, baudrate)
-                        thread = executor.submit(SerialUtilities.get_port_unique_id, standard_port = standard_port, timeout = 3)
+                        thread = executor.submit(SerialUtilities.extract_unique_id_of_port, standard_port = standard_port, timeout = 3)
                         unique_id_of_port = thread.result(3)
                         if unique_id_of_port.upper() == unique_id.upper():
                             port_name = port
@@ -139,8 +144,6 @@ class UbloxSerial:
                 if not self.__config_status:
                     self.__setup_serial_port_and_reader(self.port_name, self.baudrate)
             else:
-                # if self.__port is None:
-                #     self.__port = serial.Serial(self.port_name, self.baudrate)
                 if self.__port is not None and not self.__port.is_open:
                     self.__port.open()
 
@@ -188,25 +191,7 @@ class UbloxSerial:
     def close(self) -> None:
         if self.__port is not None and self.__port.is_open:
             self.__port.close()
-    
-    # """
-    #     This method is intended to reconfigure the serial port. This should only be used if the dynamic parameters like port_name or baudrate are changed after initialization.
-    # """
-    # def reconfig_serial_port(self, port_name: str, baudrate: Literal[1200, 2400, 4800, 9600, 19200, 38400, 57600, 115200, 230400, 460800]) -> bool:
-    #     try:
-    #         self.close()
-    #         self.__ubr = None
-    #         # Configurations to antenna to work in a specified mode.
-    #         self.__recent_ubx_message.clear()
-    #         self.__is_running = False
-    #         self.__setup_serial_port_and_reader(port_name, baudrate)
-    #     except:
-    #         logger.error("Exception occured while reconfiguring the port.")
-    #         self.__is_running = False
-    #         return False
-        
-    #     return True
-    
+
     """
         Reads data from serial port and calls respective message handlers methods.
     """
@@ -345,7 +330,6 @@ class UbloxSerial:
             if self.__latitude is not None and self.__longitude is not None:
                 gnss_status.latitude = round(float(self.__latitude),2) 
                 gnss_status.longitude = round(float(self.__longitude),2)
-                gnss_status.valid_fix = True
             else:
                 gnss_status.valid_fix = False
             
@@ -354,6 +338,7 @@ class UbloxSerial:
             nav_relposned = self.get_recent_ubx_message('NAV-RELPOSNED')
             nav_hpposecef = self.get_recent_ubx_message('NAV-HPPOSECEF')
             nav_sig = self.get_recent_ubx_message('NAV-SIG')
+            nav_cov = self.get_recent_ubx_message('NAV-COV')
             
             # augmentations information
             augmentations_used = False
@@ -372,24 +357,27 @@ class UbloxSerial:
             
             # accuracy information
             if nav_hpposecef is not None and nav_hpposllh is not None:
-                variance = [float(nav_hpposllh.hAcc**2),0.0,0.0,0.0,float(nav_hpposllh.vAcc**2),0.0,0.0,0.0,float(nav_hpposllh.hAcc**2)]
-                gnss_status.position_covariance = UserList(variance)
-                gnss_status.position_covariance_type = gnss_status.COVARIANCE_TYPE_DIAGONAL_KNOWN
                 gnss_status.altitude = round(float(nav_hpposllh.height/1000), 2)#scaling and meters conversion
-                gnss_status.two_dimension_accuracy = round(float(nav_hpposllh.hAcc/1000), 2) # scaling and meters conversion
-                gnss_status.three_dimension_accuracy = round(float(nav_hpposecef.pAcc/1000), 2) # scaling and meters conversion
+                gnss_status.accuracy_2d = round(float(nav_hpposllh.hAcc/1000), 2) # scaling and meters conversion
+                gnss_status.accuracy_3d = round(float(nav_hpposecef.pAcc/1000), 2) # scaling and meters conversion
+
+            if nav_cov is not None and nav_cov.posCovValid == 1:
+                variance = [round(float(nav_cov.posCovNN), 2), round(float(nav_cov.posCovNE), 2), round(float(nav_cov.posCovND), 2), round(float(nav_cov.posCovNE), 2), round(float(nav_cov.posCovEE), 2), round(float(nav_cov.posCovED), 2), round(float(nav_cov.posCovND), 2), round(float(nav_cov.posCovED), 2), round(float(nav_cov.posCovDD), 2)]
+                gnss_status.position_covariance = UserList(variance)
+                gnss_status.position_covariance_type = gnss_status.COVARIANCE_TYPE_KNOWN
+                pass
             
             # navsatstatus information
             if nav_pvt is not None:
                 status = NavSatStatus()
                 if nav_pvt.gnssFixOk == 1:
+                    gnss_status.valid_fix = True
                     if nav_pvt.carrSoln != 0:
                         status.status = NavSatStatus.STATUS_GBAS_FIX
                     else:
                         status.status = NavSatStatus.STATUS_FIX
                 else:
                     status.status = NavSatStatus.STATUS_NO_FIX
-                
                 status.service = self.__service_constellations
                 gnss_status.status = status
                 gnss_status.quality = self.__get_quality_string(nav_pvt)
@@ -408,12 +396,12 @@ class UbloxSerial:
                 for item in gnss_sat_count:
                     nav_sat_info = NavSatInfo()
                     nav_sat_info.gnss_id = item
-                    nav_sat_info.no_of_satellites = gnss_sat_count[item]
+                    nav_sat_info.count = gnss_sat_count[item]
                     nav_sat_info_list.append(nav_sat_info)
                 pass
 
                 gnss_status.no_of_satellites = no_of_satellites
-                gnss_status.satellites_information = UserList(nav_sat_info_list)
+                gnss_status.satellite_information = UserList(nav_sat_info_list)
             else:
                 gnss_status.no_of_satellites = 0
                 
@@ -470,7 +458,7 @@ class UbloxSerial:
     
     def __get_config_set(self, mode_of_operation: Literal['Disabled', 'Heading_Base', 'Rover'], use_corrections: bool = False) -> list :
         # Common configuration. Enabling Nmea, Ubx messages for both input and output.
-        config_data = [('CFG_UART1INPROT_NMEA', 1), ('CFG_UART1INPROT_UBX', 1), ('CFG_UART1OUTPROT_NMEA', 1), ('CFG_UART1OUTPROT_UBX', 1), ('CFG_MSGOUT_UBX_MON_SYS_UART1', 1), ('CFG_NAVSPG_DYNMODEL', 0), ('CFG_MSGOUT_UBX_NAV_SIG_UART1', 1)]
+        config_data = [('CFG_UART1INPROT_NMEA', 1), ('CFG_UART1INPROT_UBX', 1), ('CFG_UART1OUTPROT_NMEA', 1), ('CFG_UART1OUTPROT_UBX', 1), ('CFG_MSGOUT_UBX_MON_SYS_UART1', 1), ('CFG_NAVSPG_DYNMODEL', 0), ('CFG_MSGOUT_UBX_NAV_SIG_UART1', 1),('CFG_MSGOUT_UBX_NAV_COV_UART1', 1)]
 
         if mode_of_operation == 'Disabled':
             config_data.extend([('CFG_MSGOUT_UBX_NAV_HPPOSECEF_UART1', 1), ('CFG_MSGOUT_UBX_NAV_HPPOSLLH_UART1', 1), ('CFG_MSGOUT_UBX_NAV_PVT_UART1', 1)])

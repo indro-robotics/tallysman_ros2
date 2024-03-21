@@ -6,7 +6,6 @@ import base64
 from rclpy.node import Node
 from sensor_msgs.msg import NavSatFix
 from std_msgs.msg import Header
-import threading
 from tallysman_ros2.pointperfect_module import PointPerfectModule
 from tallysman_ros2.serial_module import UbloxSerial
 from pynmeagps import NMEAMessage
@@ -41,9 +40,6 @@ class TallysmanGps(Node):
         self.mode : Literal['Disabled', 'Heading_Base', 'Rover'] = mode
         self.frame_id = self.get_parameter("frame_id").get_parameter_value().string_value
         #endregion
-
-        # self.process_thread = threading.Thread(target=self.__process, name='tallysman_gps_process', daemon=True)
-        # self.process_thread.start()
 
         internal_logger.toggle_logs(self.save_logs)
         internal_logger.setLevel(self.log_level)
@@ -83,12 +79,6 @@ class TallysmanGps(Node):
             self.reconnect_timer = self.create_timer(30, self.__reconnect_pointperfect_if_needed)
         
         #endregion
-
-        self.lock = threading.Lock()
-
-        # Timer to poll status messages from base/rover for every sec.
-        # self.timer = self.create_timer(1, self.ser.poll)
-
         pass
 
     """
@@ -140,6 +130,9 @@ class TallysmanGps(Node):
             self.logger.info('Received RTCM message with identity: ' + rmg.identity)
         pass
 
+    """
+        gets the status of the signal and outputs into the topic with NavSatFix message
+    """
     def get_status(self) -> None:
         status = self.ser.get_status()
         
