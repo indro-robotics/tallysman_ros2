@@ -34,6 +34,7 @@ class GPSDataSubscriber(Node):
         http_server_thread = threading.Thread(target=self.start_server)
         http_server_thread.daemon = True
         http_server_thread.start()
+        pass
 
     def callback(self, msg):
         latitude = msg.latitude
@@ -42,6 +43,7 @@ class GPSDataSubscriber(Node):
         if latitude != 0.0 and longitude != 0.0:  # Filter out invalid GPS data
             # Add the current GPS data point to the history
             self.history.append([latitude, longitude])
+        pass
 
     def start_server(self):
         server_address = ('', self.port)

@@ -6,7 +6,6 @@ import base64
 from rclpy.node import Node
 from sensor_msgs.msg import NavSatFix
 from std_msgs.msg import Header
-import threading
 from tallysman_ros2.pointperfect_module import PointPerfectModule
 from tallysman_ros2.serial_module import UbloxSerial
 from pynmeagps import NMEAMessage
@@ -20,17 +19,18 @@ class TallysmanGps(Node):
         
         internal_logger = Logger(self.get_logger())
         #region Parameters declaration
-        self.declare_parameter('usb_port','/dev/ttyUSB1')
+        self.declare_parameter('unique_id','')
         self.declare_parameter('baud_rate', 230400)
         self.declare_parameter('use_corrections', True) # Parameter {config_path} needs to be present if this is True.
         self.declare_parameter('region', 'us') # The region where antenna is present. Parameter only needed when use_corrections is True
         self.declare_parameter('config_path', '/root/humble_ws/src/tallysman_ros2/pointperfect_files/ucenter-config.json') # The path where the corrections_config is placed. Parameter only needed when use_corrections is True
         self.declare_parameter('save_logs', False)
         self.declare_parameter('log_level', LoggingLevel.Info)
+        self.declare_parameter('frame_id', 'gps')
         #endregion
 
         #region Parameters Initialization
-        self.usb_port = self.get_parameter('usb_port').get_parameter_value().string_value
+        self.unique_id = self.get_parameter('unique_id').get_parameter_value().string_value
         self.baud_rate = self.get_parameter('baud_rate').get_parameter_value().integer_value
         self.use_corrections = self.get_parameter("use_corrections").get_parameter_value().bool_value
         self.region = self.get_parameter("region").get_parameter_value().string_value
@@ -38,15 +38,13 @@ class TallysmanGps(Node):
         self.save_logs = self.get_parameter("save_logs").get_parameter_value().bool_value
         self.log_level : LoggingLevel = LoggingLevel(self.get_parameter("log_level").get_parameter_value().integer_value)
         self.mode : Literal['Disabled', 'Heading_Base', 'Rover'] = mode
+        self.frame_id = self.get_parameter("frame_id").get_parameter_value().string_value
         #endregion
-
-        self.process_thread = threading.Thread(target=self.__process, name='tallysman_gps_process', daemon=True)
-        self.process_thread.start()
 
         internal_logger.toggle_logs(self.save_logs)
         internal_logger.setLevel(self.log_level)
         self.logger = SimplifiedLogger(self.mode+'_GPS')
-        self.ser = UbloxSerial(self.usb_port, self.baud_rate, self.mode, self.use_corrections)
+        self.ser = UbloxSerial(self.unique_id, self.baud_rate, self.mode, self.use_corrections)
 
         #region Conditional attachments to events based on rover/base
         if self.mode == 'Heading_Base':
@@ -81,12 +79,6 @@ class TallysmanGps(Node):
             self.reconnect_timer = self.create_timer(30, self.__reconnect_pointperfect_if_needed)
         
         #endregion
-
-        self.lock = threading.Lock()
-
-        # Timer to poll status messages from base/rover for every sec.
-        # self.timer = self.create_timer(1, self.ser.poll)
-
         pass
 
     """
@@ -138,12 +130,15 @@ class TallysmanGps(Node):
             self.logger.info('Received RTCM message with identity: ' + rmg.identity)
         pass
 
+    """
+        gets the status of the signal and outputs into the topic with NavSatFix message
+    """
     def get_status(self) -> None:
         status = self.ser.get_status()
         
         header = Header()
         header.stamp = self.get_clock().now().to_msg()
-        header.frame_id = 'gps'
+        header.frame_id = self.frame_id
         status.header = header
         self.status_publisher.publish(status)
         if status.latitude is not None and status.longitude is not None:
@@ -156,54 +151,8 @@ class TallysmanGps(Node):
             msg.position_covariance_type = status.position_covariance_type
             msg.status = status.status
             self.publisher.publish(msg)
-            self.logger.info('Published GPS data - Latitude: {:.6f}, Longitude: {:.6f}'.format(status.latitude, status.longitude))    
+            self.logger.info('Published GPS data - Latitude: {:.2f}, Longitude: {:.2f}'.format(status.latitude, status.longitude))    
         pass
-    
-    """
-        This is a continuous loop to check for any parameter updates in runtime.
-    """
-    def __process(self) -> None:
-        while(rclpy.ok()):
-            # Checking if the parameter values are changed from start.
-            # serial parameters check.
-            if (self.usb_port != self.get_parameter('usb_port').get_parameter_value().string_value) or (self.baud_rate != self.get_parameter('baud_rate').get_parameter_value().integer_value):
-                self.logger.info("Parameters Updated. Port:"+ self.get_parameter('usb_port').get_parameter_value().string_value + ", Baud Rate: " + str(self.get_parameter('baud_rate').get_parameter_value().integer_value))
-                if self.__reconfig_serial_module():
-                    self.logger.info("Port reconfigured.")
-                    self.usb_port = self.get_parameter('usb_port').get_parameter_value().string_value
-                    self.baud_rate = self.get_parameter('baud_rate').get_parameter_value().integer_value
-                else:
-                    self.logger.warn("Port not reconfigured.")
-            
-            if (self.save_logs != self.get_parameter('save_logs').get_parameter_value().bool_value):
-                self.save_logs = self.get_parameter('save_logs').get_parameter_value().bool_value
-                Logger().toggle_logs(self.save_logs)
-
-            if (self.log_level != self.get_parameter('log_level').get_parameter_value().integer_value):
-                log_level = self.get_parameter('log_level').get_parameter_value().integer_value
-                if Logger().setLevel(log_level):
-                    self.log_level = log_level
-            time.sleep(10)
-        pass
-    
-    """
-        This method is called when serial parameters are changed in runtime. Serial module is reconfigured.
-    """
-    def __reconfig_serial_module(self) -> bool:
-        usb_port = self.get_parameter('usb_port').get_parameter_value().string_value
-        baud_rate = self.get_parameter('baud_rate').get_parameter_value().integer_value
-        return self.ser.reconfig_serial_port(usb_port, baud_rate)
-
-    # def __reconfig_pointperfect_module(self) -> bool:
-    #     self.use_corrections = self.get_parameter("use_corrections").get_parameter_value().bool_value
-    #     if self.use_corrections:
-    #         self.pp = PointPerfectModule(self.config_path, self.region)
-    #         self.pp.on_correction_message += self.handle_correction_message  
-    #     else:
-    #         self.pp.shutdown()
-    #         self.pp.on_correction_message -= self.handle_correction_message
-    #         self.pp = None
-    #         pass
     
     """
         Spartn keys are checked in the antenna. if no keys are present, pointperfect is reconnected to get a new pair of keys.
