@@ -328,8 +328,8 @@ class UbloxSerial:
         try:
             # lat and long information
             if self.__latitude is not None and self.__longitude is not None:
-                gnss_status.latitude = round(float(self.__latitude),2) 
-                gnss_status.longitude = round(float(self.__longitude),2)
+                gnss_status.latitude = round(float(self.__latitude), 6) 
+                gnss_status.longitude = round(float(self.__longitude), 6)
             else:
                 gnss_status.valid_fix = False
             
@@ -357,12 +357,12 @@ class UbloxSerial:
             
             # accuracy information
             if nav_hpposecef is not None and nav_hpposllh is not None:
-                gnss_status.altitude = round(float(nav_hpposllh.height/1000), 2)#scaling and meters conversion
-                gnss_status.accuracy_2d = round(float(nav_hpposllh.hAcc/1000), 2) # scaling and meters conversion
-                gnss_status.accuracy_3d = round(float(nav_hpposecef.pAcc/1000), 2) # scaling and meters conversion
+                gnss_status.altitude = round(float(nav_hpposllh.height/1000), 4)#scaling and meters conversion
+                gnss_status.accuracy_2d = round(float(nav_hpposllh.hAcc/1000), 4) # scaling and meters conversion
+                gnss_status.accuracy_3d = round(float(nav_hpposecef.pAcc/1000), 4) # scaling and meters conversion
 
             if nav_cov is not None and nav_cov.posCovValid == 1:
-                variance = [round(float(nav_cov.posCovNN), 2), round(float(nav_cov.posCovNE), 2), round(float(nav_cov.posCovND), 2), round(float(nav_cov.posCovNE), 2), round(float(nav_cov.posCovEE), 2), round(float(nav_cov.posCovED), 2), round(float(nav_cov.posCovND), 2), round(float(nav_cov.posCovED), 2), round(float(nav_cov.posCovDD), 2)]
+                variance = [round(float(nav_cov.posCovNN), 4), round(float(nav_cov.posCovNE), 4), round(float(nav_cov.posCovND), 4), round(float(nav_cov.posCovNE), 4), round(float(nav_cov.posCovEE), 4), round(float(nav_cov.posCovED), 4), round(float(nav_cov.posCovND), 4), round(float(nav_cov.posCovED), 4), round(float(nav_cov.posCovDD), 4)]
                 gnss_status.position_covariance = UserList(variance)
                 gnss_status.position_covariance_type = gnss_status.COVARIANCE_TYPE_KNOWN
                 pass

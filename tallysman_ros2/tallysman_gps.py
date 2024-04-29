@@ -151,7 +151,7 @@ class TallysmanGps(Node):
             msg.position_covariance_type = status.position_covariance_type
             msg.status = status.status
             self.publisher.publish(msg)
-            self.logger.info('Published GPS data - Latitude: {:.2f}, Longitude: {:.2f}'.format(status.latitude, status.longitude))    
+            self.logger.info('Published GPS data - Latitude: {:.6f}, Longitude: {:.6f}'.format(status.latitude, status.longitude))    
         pass
     
     """
