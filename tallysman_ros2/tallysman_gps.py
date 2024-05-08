@@ -23,7 +23,7 @@ class TallysmanGps(Node):
         self.declare_parameter('baud_rate', 230400)
         self.declare_parameter('use_corrections', True) # Parameter {config_path} needs to be present if this is True.
         self.declare_parameter('region', 'us') # The region where antenna is present. Parameter only needed when use_corrections is True
-        self.declare_parameter('config_path', '/root/humble_ws/src/tallysman_ros2/pointperfect_files/ucenter-config.json') # The path where the corrections_config is placed. Parameter only needed when use_corrections is True
+        self.declare_parameter('config_path', '') # The path where the corrections_config is placed. Parameter only needed when use_corrections is True
         self.declare_parameter('save_logs', False)
         self.declare_parameter('log_level', LoggingLevel.Info)
         self.declare_parameter('frame_id', 'gps')
@@ -45,16 +45,19 @@ class TallysmanGps(Node):
         internal_logger.setLevel(self.log_level)
         self.logger = SimplifiedLogger(self.mode+'_GPS')
         self.ser = UbloxSerial(self.unique_id, self.baud_rate, self.mode, self.use_corrections)
-
         #region Conditional attachments to events based on rover/base
         if self.mode == 'Heading_Base':
             # Publisher to publish RTCM corrections to Rover
-            self.rtcm_publisher = self.create_publisher(RtcmMessage, 'rtcm_corrections', 50)
+            self.rtcm_publisher = self.create_publisher(RtcmMessage, 'rtcm_corrections', 100)
             self.ser.rtcm_message_found += self.handle_rtcm_message
+
+            # Timer to send rtcm messages from pool.
+            self.rtcm_msg_pool:list = []
+            self.rtcm_publish_timer = self.create_timer(5, self.publish_pooled_rtcm)
             pass
         elif self.mode == 'Rover':
             # Subscriber for receiving RTCM corrections from base.
-            self.rtcm_subscriber = self.create_subscription(RtcmMessage, 'rtcm_corrections', self.handle_rtcm_message, 50)
+            self.rtcm_subscriber = self.create_subscription(RtcmMessage, 'rtcm_corrections', self.handle_rtcm_message, 100)
             # Publisher for location information. Taking location from rover since it is more accurate.
             self.publisher = self.create_publisher(NavSatFix, 'gps', 50)
             # Publisher for location information. Taking location from rover since it is more accurate.
@@ -121,8 +124,7 @@ class TallysmanGps(Node):
             encoded_msg = base64.b64encode(rtcmMessage.serialize()).decode()
             msg.identity = rtcmMessage.identity
             msg.payload = encoded_msg
-            self.rtcm_publisher.publish(msg)
-            self.logger.info('Published RTCM message with identity: ' + rtcmMessage.identity) 
+            self.rtcm_msg_pool.append(msg)
         else:
             data = base64.b64decode(rtcmMessage.payload.encode())
             rmg = RTCMReader.parse(data)
@@ -141,7 +143,7 @@ class TallysmanGps(Node):
         header.frame_id = self.frame_id
         status.header = header
         self.status_publisher.publish(status)
-        if status.latitude is not None and status.longitude is not None:
+        if status.valid_fix:
             msg = NavSatFix()
             msg.header = header
             msg.latitude = status.latitude
@@ -154,6 +156,13 @@ class TallysmanGps(Node):
             self.logger.info('Published GPS data - Latitude: {:.6f}, Longitude: {:.6f}'.format(status.latitude, status.longitude))    
         pass
     
+    def publish_pooled_rtcm(self):
+        pooled_msgs = list(self.rtcm_msg_pool)
+        self.rtcm_msg_pool.clear()
+        for msg in pooled_msgs:
+            self.rtcm_publisher.publish(msg)
+            self.logger.info('Published RTCM message with identity: ' + msg.identity) 
+
     """
         Spartn keys are checked in the antenna. if no keys are present, pointperfect is reconnected to get a new pair of keys.
     """

@@ -1,4 +1,29 @@
-tallysman_gps_publisher:
-  usb_port: '/dev/ttyUSB0'
-  baud_rate: 38400
-  topic_name: 'tallysman'
+tallysman:
+  base:
+    ros__parameters:
+      baud_rate: 230400
+      unique_id: "EA 41 EA 98 9A"
+    
+tallysman:
+  rover:
+    ros__parameters:
+      baud_rate: 230400
+      unique_id: "DA 4C DA 89 18"
+
+tallysman:
+  gps_publisher:
+    ros__parameters:
+      baud_rate: 230400
+      unique_id: "EA 41 EA 98 9A"
+
+tallysman:
+  tallysman_gps:
+    ros__parameters:
+      baud_rate: 230400
+      unique_id: "EA 41 EA 98 9A"
+
+tallysman:
+  rtcm_handler:
+    ros__parameters:
+      key: "Wap5SA.O5VD4g:t2ltWLfva3gp5kituU5M4f9JL83BIwioTV1hGOjrSLU"
+      channel: "Rtcm1"

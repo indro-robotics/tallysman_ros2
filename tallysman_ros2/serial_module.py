@@ -111,12 +111,12 @@ class UbloxSerial:
         self.__use_corrections = use_corrections
         self.__latitude = None
         self.__longitude = None
+        self.__quality = None
         self.__config_status = False
         self.__recent_ubx_message = dict[str,(float,UBXMessage)]()
         self.__service_constellations = 0
         self.runTime = 0
-        self.port_name = SerialUtilities.get_port_from_unique_id(self.unique_id, self.baudrate)
-        # self.__poll_messages: set[tuple[str,str]] = set()
+        
         self.__process =  threading.Thread(target=self.__serial_process, name="serial_process_thread", daemon=True)
         self.__process.start()
         self.__port = None
@@ -128,34 +128,30 @@ class UbloxSerial:
         This will also detect if the antenna is rebooted and does the configuration to the antenna again.
     """
     def __serial_process(self) -> None:
-        if not self.port_name:
-            self.logger.error("Could not find the port")
-            return
-        self.__setup_serial_port_and_reader(self.port_name, self.baudrate)
         while(rclpy.ok()):
-            if self.__port is not None and self.__port.is_open:
-                if self.__read_thread is not None and self.__read_thread.is_alive():
-                    # self.__read_thread.join()
-                    pass
-                else:
-                    self.__read_thread = threading.Thread(target=self.__receive_thread, name="receive_thread_"+self.__port.name, daemon=True)
-                    self.__read_thread.start()
-
-                if not self.__config_status:
-                    self.__setup_serial_port_and_reader(self.port_name, self.baudrate)
+            if not self.port_name:
+                self.logger.info("Finding port..")
+                self.port_name = SerialUtilities.get_port_from_unique_id(self.unique_id, self.baudrate)
+            elif self.__port is None or not self.__config_status:
+                self.__setup_serial_port_and_reader(self.port_name, self.baudrate)
+                pass
+            elif not self.__port.is_open:
+                self.__port.open()
+                pass
+            elif self.__read_thread is None or not self.__read_thread.is_alive():
+                self.__read_thread = threading.Thread(target=self.__receive_thread, name="receive_thread_"+self.__port.name, daemon=True)
+                self.__read_thread.start()
+                pass
             else:
-                if self.__port is not None and not self.__port.is_open:
-                    self.__port.open()
-
-            monSys = self.get_recent_ubx_message('MON-SYS')
-            if monSys is not None:
-                if self.runTime <= monSys.runTime:
-                    self.runTime = monSys.runTime
-                else:
-                    self.logger.warn("Antenna rebooted. Reconfiguring the antenna")
-                    # self.__save_boot_times(self.runTime)
-                    self.runTime = 0
-                    self.config()
+                monSys = self.get_recent_ubx_message('MON-SYS')
+                if monSys is not None:
+                    if self.runTime <= monSys.runTime:
+                        self.runTime = monSys.runTime
+                    else:
+                        self.logger.warn("Antenna rebooted. Reconfiguring the antenna")
+                        # self.__save_boot_times(self.runTime)
+                        self.runTime = 0
+                        self.config()
             time.sleep(1)
 
     """
@@ -231,6 +227,9 @@ class UbloxSerial:
         if message.identity == "GNRMC" or message.identity == "GNGGA":
             self.__latitude = message.lat if message.lat else None
             self.__longitude = message.lon if message.lon else None
+            if message.identity == "GNGGA":
+                self.__quality = message.quality
+                pass
         self.nmea_message_found(message)
         pass
     
@@ -327,11 +326,12 @@ class UbloxSerial:
         gnss_status = GnssSignalStatus()
         try:
             # lat and long information
-            if self.__latitude is not None and self.__longitude is not None:
+            if self.__latitude is not None and self.__latitude != 0 and self.__longitude is not None and self.__longitude != 0:
                 gnss_status.latitude = round(float(self.__latitude), 6) 
                 gnss_status.longitude = round(float(self.__longitude), 6)
             else:
                 gnss_status.valid_fix = False
+                return gnss_status
             
             nav_hpposllh = self.get_recent_ubx_message('NAV-HPPOSLLH')
             nav_pvt = self.get_recent_ubx_message('NAV-PVT')
@@ -357,7 +357,7 @@ class UbloxSerial:
             
             # accuracy information
             if nav_hpposecef is not None and nav_hpposllh is not None:
-                gnss_status.altitude = round(float(nav_hpposllh.height/1000), 4)#scaling and meters conversion
+                gnss_status.altitude = round(float(nav_hpposllh.height/1000), 4) # scaling and meters conversion
                 gnss_status.accuracy_2d = round(float(nav_hpposllh.hAcc/1000), 4) # scaling and meters conversion
                 gnss_status.accuracy_3d = round(float(nav_hpposecef.pAcc/1000), 4) # scaling and meters conversion
 
@@ -429,9 +429,27 @@ class UbloxSerial:
     def __get_quality_string(self, nav_pvt: UBXMessage) -> str:
         if nav_pvt is None:
             return ''
-        
         quality = ''
-        
+        if self.__quality == 0:
+            quality += 'No Fix'
+        elif self.__quality == 1:
+            quality += 'Autonomous Gnss Fix'
+        elif self.__quality == 2:
+            quality += 'Differential Gnss Fix'
+        elif self.__quality == 3:
+            quality += 'PPS'
+        elif self.__quality == 4:
+            quality += 'RTK Fixed'
+        elif self.__quality == 5:
+            quality += 'RTK Float'
+        elif self.__quality == 6:
+            quality += 'Dead Reckoning Fix'
+        elif self.__quality == 7:
+            quality += 'Manual'
+        elif self.__quality == 8:
+            quality += 'Simulated'
+
+        quality += '('        
         # Fix type definition
         if nav_pvt.fixType == 0:
             quality += 'NoFix'
@@ -453,7 +471,8 @@ class UbloxSerial:
             quality += '/Float'
         elif nav_pvt.carrSoln == 2:
             quality += '/Fixed'
-
+        
+        quality += ')'
         return quality
     
     def __get_config_set(self, mode_of_operation: Literal['Disabled', 'Heading_Base', 'Rover'], use_corrections: bool = False) -> list :

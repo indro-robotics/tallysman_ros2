@@ -1,5 +1,6 @@
 import os
 from textwrap import wrap
+import threading
 from typing import Literal
 import paho.mqtt.client as mqtt
 from events import Event
@@ -84,7 +85,7 @@ class PointPerfectModule:
 
         self.logger = SimplifiedLogger('PointPerfect')
 
-        self.__connect()
+        _ = threading.Thread(target=self.__connect, name="corrections_connect_thread", daemon=True).start()
         pass
     
     """
@@ -137,8 +138,8 @@ class PointPerfectModule:
             pc = self.__pc
             self.__client.connect(host=pc.Host, port=pc.Port, keepalive=pc.keep_alive)
             self.__client.loop_start()
-        except:
-            self.logger.error("Exception occured while connecting to PointPerfect client")
+        except Exception as ex:
+            self.logger.error("Exception occured while connecting to PointPerfect client." + str(ex))
 
     """
         Disconnects from MQTT client.
