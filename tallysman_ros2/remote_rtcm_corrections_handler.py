@@ -63,7 +63,6 @@ class RemoteRtcmCorrectionsHandler(Node):
         pass
     
     def __process_incoming_messages(self, message: Message):
-        self.logger.info("Message received : " + message.data) 
         try:
             for msg in message.data:
                 rtcmMessage = RTCMReader.parse(base64.b64decode(msg))

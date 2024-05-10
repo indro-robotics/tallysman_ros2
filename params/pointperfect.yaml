@@ -1,0 +1,25 @@
+tallysman:
+  tallysman_gps:
+    ros__parameters:
+      use_corrections: True
+      config_path: 'src/tallysman_ros2/pointperfect_files/ucenter-config.json'
+      region: 'us'
+
+tallysman:                  
+  gps_publisher:
+    ros__parameters:
+      use_corrections: True
+      config_path: 'src/tallysman_ros2/pointperfect_files/ucenter-config.json'
+      region: 'us'
+
+tallysman:
+  base:
+    ros__parameters:
+      use_corrections: True
+      config_path: 'src/tallysman_ros2/pointperfect_files/ucenter-config.json'
+      region: 'us'
+
+tallysman:
+  rover:
+    ros__parameters:
+      use_corrections: False
