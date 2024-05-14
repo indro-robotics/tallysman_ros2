@@ -6,7 +6,7 @@ import paho.mqtt.client as mqtt
 from events import Event
 import json
 
-from tallysman_ros2.logging import SimplifiedLogger
+from calian_gnss_ros2.logging import SimplifiedLogger
 
 """
     This class is responsible to get all the fields required to make an MQTT connection for the PointPerfect correction messages.
@@ -56,7 +56,7 @@ class PointPerfectConfiguration:
         Generates the required cert/key files from the Configuration.
     """
     def __generate_cert_file(self, header: str, contents: str, file_name: str) -> str:
-        directory = 'src/tallysman_ros2/pointperfect_files'
+        directory = 'src/calian_gnss_ros2/pointperfect_files'
         os.makedirs(directory, exist_ok=True)
         with open(os.path.join(directory, file_name), "w") as file:
             lines = []

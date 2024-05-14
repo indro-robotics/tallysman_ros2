@@ -6,16 +6,16 @@ import base64
 from rclpy.node import Node
 from sensor_msgs.msg import NavSatFix
 from std_msgs.msg import Header
-from tallysman_ros2.pointperfect_module import PointPerfectModule
-from tallysman_ros2.serial_module import UbloxSerial
+from calian_gnss_ros2.pointperfect_module import PointPerfectModule
+from calian_gnss_ros2.serial_module import UbloxSerial
 from pynmeagps import NMEAMessage
 from pyrtcm import RTCMReader
-from tallysman_msg.msg import GnssSignalStatus, RtcmMessage
-from tallysman_ros2.logging import Logger, LoggingLevel, SimplifiedLogger
+from calian_gnss_ros2_msg.msg import GnssSignalStatus, RtcmMessage
+from calian_gnss_ros2.logging import Logger, LoggingLevel, SimplifiedLogger
 
-class TallysmanGps(Node):
+class Gps(Node):
     def __init__(self, mode:Literal['Disabled', 'Heading_Base', 'Rover']='Disabled') -> None:
-        super().__init__('tallysman_gps')
+        super().__init__('calian_gnss_gps')
         
         internal_logger = Logger(self.get_logger())
         #region Parameters declaration
@@ -49,8 +49,9 @@ class TallysmanGps(Node):
         if self.mode == 'Heading_Base':
             # Publisher to publish RTCM corrections to Rover
             self.rtcm_publisher = self.create_publisher(RtcmMessage, 'rtcm_corrections', 100)
+            self.base_status_publisher = self.create_publisher(GnssSignalStatus, 'base_gps_extended', 50)
             self.ser.rtcm_message_found += self.handle_rtcm_message
-
+            self.status_timer = self.create_timer(1, self.get_status)
             # Timer to send rtcm messages from pool.
             self.rtcm_msg_pool:list = []
             self.rtcm_publish_timer = self.create_timer(5, self.publish_pooled_rtcm)
@@ -59,17 +60,15 @@ class TallysmanGps(Node):
             # Subscriber for receiving RTCM corrections from base.
             self.rtcm_subscriber = self.create_subscription(RtcmMessage, 'rtcm_corrections', self.handle_rtcm_message, 100)
             # Publisher for location information. Taking location from rover since it is more accurate.
-            self.publisher = self.create_publisher(NavSatFix, 'gps', 50)
+            self.gps_publisher = self.create_publisher(NavSatFix, 'gps', 50)
             # Publisher for location information. Taking location from rover since it is more accurate.
-            self.status_publisher = self.create_publisher(GnssSignalStatus, 'gps_extended', 50)
+            self.gps_status_publisher = self.create_publisher(GnssSignalStatus, 'gps_extended', 50)
             # Timer to poll status messages from base/rover for every sec.
             self.status_timer = self.create_timer(1, self.get_status)
             pass
         elif self.mode =='Disabled':
-            # Publisher for location information. Taking location from rover since it is more accurate.
-            self.publisher = self.create_publisher(NavSatFix, 'gps', 50)
-            # Publisher for location information. Taking location from rover since it is more accurate.
-            self.status_publisher = self.create_publisher(GnssSignalStatus, 'gps_extended', 50)
+            self.gps_publisher = self.create_publisher(NavSatFix, 'gps', 50)
+            self.gps_status_publisher = self.create_publisher(GnssSignalStatus, 'gps_extended', 50)
             # Timer to poll status messages from base/rover for every sec.
             self.status_timer = self.create_timer(1, self.get_status)
             pass
@@ -108,7 +107,7 @@ class TallysmanGps(Node):
                 msg = NavSatFix()
                 msg.latitude = float(latitude)
                 msg.longitude = float(longitude)
-                self.publisher.publish(msg)
+                self.gps_publisher.publish(msg)
                 self.logger.info('Published GPS data - Latitude: {:.6f}, Longitude: {:.6f}'.format(latitude, longitude))           
         pass
     
@@ -142,8 +141,11 @@ class TallysmanGps(Node):
         header.stamp = self.get_clock().now().to_msg()
         header.frame_id = self.frame_id
         status.header = header
-        self.status_publisher.publish(status)
-        if status.valid_fix:
+
+        if not status.valid_fix:
+            return
+        
+        if self.mode == 'Rover' or self.mode == 'Disabled':
             msg = NavSatFix()
             msg.header = header
             msg.latitude = status.latitude
@@ -152,9 +154,11 @@ class TallysmanGps(Node):
             msg.position_covariance = status.position_covariance
             msg.position_covariance_type = status.position_covariance_type
             msg.status = status.status
-            self.publisher.publish(msg)
+            self.gps_publisher.publish(msg)
+            self.gps_status_publisher.publish(status)
             self.logger.info('Published GPS data - Latitude: {:.6f}, Longitude: {:.6f}'.format(status.latitude, status.longitude))    
-        pass
+        else:
+            self.base_status_publisher.publish(status)
     
     def publish_pooled_rtcm(self):
         pooled_msgs = list(self.rtcm_msg_pool)
@@ -176,9 +180,9 @@ class TallysmanGps(Node):
 def main():
     rclpy.init()
     args = rclpy.utilities.remove_ros_args(sys.argv)
-    tallysman_gps = TallysmanGps(mode=args[1])
-    rclpy.spin(tallysman_gps)
-    tallysman_gps.destroy_node()
+    gps = Gps(mode=args[1])
+    rclpy.spin(gps)
+    gps.destroy_node()
     rclpy.shutdown()
 
 if __name__ == '__main__':

@@ -27,7 +27,7 @@ class Logger(object):
             cls._instance = super(Logger, cls).__new__(cls)
             cls._internal_logger = logger
             # Put any initialization here.
-        cls._log_directory = 'src/tallysman_ros2/logs'
+        cls._log_directory = 'src/calian_gnss_ros2/logs'
         os.makedirs(cls._log_directory, exist_ok=True)
         return cls._instance
     

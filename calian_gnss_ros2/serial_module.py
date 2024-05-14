@@ -9,10 +9,10 @@ import rclpy
 from pyubx2 import ubxreader, UBXMessage, GET, SET, POLL
 from pynmeagps import NMEAMessage
 from pyrtcm import RTCMMessage
-from tallysman_msg.msg import GnssSignalStatus
-from tallysman_msg.msg import NavSatInfo
+from calian_gnss_ros2_msg.msg import GnssSignalStatus
+from calian_gnss_ros2_msg.msg import NavSatInfo
 from sensor_msgs.msg import NavSatStatus
-from tallysman_ros2.logging import SimplifiedLogger
+from calian_gnss_ros2.logging import SimplifiedLogger
 import concurrent.futures
 
 class SerialUtilities:
@@ -132,7 +132,7 @@ class UbloxSerial:
             if not self.port_name:
                 self.logger.info("Finding port..")
                 self.port_name = SerialUtilities.get_port_from_unique_id(self.unique_id, self.baudrate)
-            elif self.__port is None or not self.__config_status:
+            elif (self.__port is None or not self.__config_status):
                 self.__setup_serial_port_and_reader(self.port_name, self.baudrate)
                 pass
             elif not self.__port.is_open:
@@ -316,6 +316,8 @@ class UbloxSerial:
         self.__config_status = config_successful
         if not self.__config_status:
             self.logger.error("Configuration failed.")
+        else:
+            self.logger.info("Configuration Successful.")
         return config_successful
 
 
@@ -342,7 +344,7 @@ class UbloxSerial:
             
             # augmentations information
             augmentations_used = False
-            if self.__rtk_mode == 'Disabled':
+            if self.__rtk_mode == 'Disabled' or self.__rtk_mode == 'Heading_Base' :
                 rxm_spartn = self.get_recent_ubx_message('RXM-SPARTN')
                 augmentations_used = True if rxm_spartn and rxm_spartn.msgUsed == 2 else False
             else: 
@@ -478,9 +480,8 @@ class UbloxSerial:
     def __get_config_set(self, mode_of_operation: Literal['Disabled', 'Heading_Base', 'Rover'], use_corrections: bool = False) -> list :
         # Common configuration. Enabling Nmea, Ubx messages for both input and output.
         config_data = [('CFG_UART1INPROT_NMEA', 1), ('CFG_UART1INPROT_UBX', 1), ('CFG_UART1OUTPROT_NMEA', 1), ('CFG_UART1OUTPROT_UBX', 1), ('CFG_MSGOUT_UBX_MON_SYS_UART1', 1), ('CFG_NAVSPG_DYNMODEL', 0), ('CFG_MSGOUT_UBX_NAV_SIG_UART1', 1),('CFG_MSGOUT_UBX_NAV_COV_UART1', 1)]
-
+        config_data.extend([('CFG_MSGOUT_UBX_NAV_HPPOSECEF_UART1', 1), ('CFG_MSGOUT_UBX_NAV_HPPOSLLH_UART1', 1), ('CFG_MSGOUT_UBX_NAV_PVT_UART1', 1)])
         if mode_of_operation == 'Disabled':
-            config_data.extend([('CFG_MSGOUT_UBX_NAV_HPPOSECEF_UART1', 1), ('CFG_MSGOUT_UBX_NAV_HPPOSLLH_UART1', 1), ('CFG_MSGOUT_UBX_NAV_PVT_UART1', 1)])
             pass
         elif mode_of_operation == 'Heading_Base':
             # Enabling output RTCM and disabling input RTCM
@@ -493,7 +494,7 @@ class UbloxSerial:
             config_data.extend([('CFG_MSGOUT_RTCM_3X_TYPE4072_0_UART1', 0x1), ('CFG_MSGOUT_RTCM_3X_TYPE1230_UART1', 0x1), ('CFG_TMODE_MODE', 0x0)])
         elif mode_of_operation == 'Rover':
             # rover related configurations
-            config_data.extend([('CFG_UART1INPROT_RTCM3X', 1), ('CFG_MSGOUT_UBX_RXM_RTCM_UART1', 0x1), ('CFG_MSGOUT_UBX_NAV_HPPOSECEF_UART1', 1), ('CFG_MSGOUT_UBX_NAV_HPPOSLLH_UART1', 1), ('CFG_MSGOUT_UBX_NAV_PVT_UART1', 1), ('CFG_MSGOUT_UBX_NAV_RELPOSNED_UART1', 1)]) 
+            config_data.extend([('CFG_UART1INPROT_RTCM3X', 1), ('CFG_MSGOUT_UBX_RXM_RTCM_UART1', 0x1), ('CFG_MSGOUT_UBX_NAV_RELPOSNED_UART1', 1)]) 
 
         if use_corrections:
             config_data.extend([('CFG_SPARTN_USE_SOURCE', 0), ('CFG_UART1INPROT_SPARTN', 1), ('CFG_MSGOUT_UBX_RXM_SPARTN_UART1', 1), ('CFG_MSGOUT_UBX_RXM_COR_UART1', 1)])

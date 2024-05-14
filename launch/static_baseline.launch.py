@@ -18,63 +18,61 @@ from launch_ros.actions import Node
 
 def generate_launch_description():
     config = os.path.join(
-        get_package_share_directory('tallysman_ros2'),
+        get_package_share_directory('calian_gnss_ros2'),
         'params',
         'config.yaml'
         )
     
     corrections_config = os.path.join(
-        get_package_share_directory('tallysman_ros2'),
+        get_package_share_directory('calian_gnss_ros2'),
         'params',
         'pointperfect.yaml'
         )
     
     logs_config = os.path.join(
-        get_package_share_directory('tallysman_ros2'),
+        get_package_share_directory('calian_gnss_ros2'),
         'params',
         'logs.yaml'
         )
     return LaunchDescription([
         Node(
-            package='tallysman_ros2',
-            executable='tallysman_gps',
-            name='base',
+            package='calian_gnss_ros2',
+            executable='remote_rtcm_corrections_handler',
+            name='rtcm_handler',
             output='screen',
-            emulate_tty=True,
+            emulate_tty=False,
             parameters=[
-                config, corrections_config, logs_config
+                config, logs_config
             ],
-            namespace='tallysman',
+            namespace='calian_gnss',
             remappings=[
                 ('rtcm_corrections','rtcm_topic')
             ],
-            
-            arguments=['Heading_Base']
         ),
         Node(
-            package='tallysman_ros2',
-            executable='tallysman_gps',
+            package='calian_gnss_ros2',
+            executable='calian_gnss_gps',
             name='rover',
             output='screen',
             emulate_tty=True,
             parameters=[
                 config, corrections_config, logs_config
             ],
-            namespace='tallysman',
+            namespace='calian_gnss',
             remappings=[
                 ('rtcm_corrections','rtcm_topic')
             ],
             arguments=['Rover']
         ),
         # Node(
-        #     package='tallysman_ros2',
-        #     executable='tallysman_gps_visualizer',
+        #     package='calian_gnss_ros2',
+        #     executable='calian_gnss_gps_visualizer',
         #     name='gps_visualizer',
         #     output='screen',
         #     emulate_tty=False,
         #     parameters=[
         #         {'port': 8080}
         #     ],
-        #     namespace='tallysman',
+        #     namespace='calian_gnss',
         # )
     ])

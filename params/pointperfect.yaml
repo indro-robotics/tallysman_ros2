@@ -1,25 +1,25 @@
-tallysman:
-  tallysman_gps:
+calian_gnss:
+  gps:
     ros__parameters:
       use_corrections: True
-      config_path: 'src/tallysman_ros2/pointperfect_files/ucenter-config.json'
+      config_path: 'src/calian_gnss_ros2/pointperfect_files/ucenter-config.json'
       region: 'us'
 
-tallysman:                  
+calian_gnss:                  
   gps_publisher:
     ros__parameters:
       use_corrections: True
-      config_path: 'src/tallysman_ros2/pointperfect_files/ucenter-config.json'
+      config_path: 'src/calian_gnss_ros2/pointperfect_files/ucenter-config.json'
       region: 'us'
 
-tallysman:
+calian_gnss:
   base:
     ros__parameters:
       use_corrections: True
-      config_path: 'src/tallysman_ros2/pointperfect_files/ucenter-config.json'
+      config_path: 'src/calian_gnss_ros2/pointperfect_files/ucenter-config.json'
       region: 'us'
 
-tallysman:
+calian_gnss:
   rover:
     ros__parameters:
       use_corrections: False
