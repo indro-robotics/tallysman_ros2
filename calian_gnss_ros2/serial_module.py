@@ -350,13 +350,13 @@ class UbloxSerial:
             # heading information
             if nav_relposned is not None and nav_relposned.relPosValid == 1 and nav_relposned.relPosHeadingValid == 1:
                 self.__status.heading = round(nav_relposned.relPosHeading, 2)
-                self.__status.length = round(float(nav_relposned.relPosLength), 2)
+                self.__status.length = round(float(nav_relposned.relPosLength*0.01), 2)
             
             # accuracy information
             if nav_hpposecef is not None and nav_hpposecef.invalidEcef == 0 and nav_hpposllh is not None and nav_hpposllh.invalidLlh == 0:
-                self.__status.altitude = round(float(nav_hpposllh.height/1000), 4) # scaling and meters conversion
-                self.__status.accuracy_2d = round(float(nav_hpposllh.hAcc/1000), 4) # scaling and meters conversion
-                self.__status.accuracy_3d = round(float(nav_hpposecef.pAcc/1000), 4) # scaling and meters conversion
+                self.__status.altitude = round(float(nav_hpposllh.height*0.001), 4) # scaling and meters conversion
+                self.__status.accuracy_2d = round(float(nav_hpposllh.hAcc*0.1*0.001), 4) # scaling and meters conversion
+                self.__status.accuracy_3d = round(float(nav_hpposecef.pAcc*0.1*0.001), 4) # scaling and meters conversion
 
             if nav_cov is not None and nav_cov.posCovValid == 1:
                 variance = [round(float(nav_cov.posCovNN), 4), round(float(nav_cov.posCovNE), 4), round(float(nav_cov.posCovND), 4), round(float(nav_cov.posCovNE), 4), round(float(nav_cov.posCovEE), 4), round(float(nav_cov.posCovED), 4), round(float(nav_cov.posCovND), 4), round(float(nav_cov.posCovED), 4), round(float(nav_cov.posCovDD), 4)]
