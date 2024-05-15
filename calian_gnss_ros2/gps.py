@@ -54,7 +54,7 @@ class Gps(Node):
             self.status_timer = self.create_timer(1, self.get_status)
             # Timer to send rtcm messages from pool.
             self.rtcm_msg_pool:list = []
-            self.rtcm_publish_timer = self.create_timer(5, self.publish_pooled_rtcm)
+            self.rtcm_publish_timer = self.create_timer(0.5, self.publish_pooled_rtcm)
             pass
         elif self.mode == 'Rover':
             # Subscriber for receiving RTCM corrections from base.

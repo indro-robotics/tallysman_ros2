@@ -108,10 +108,9 @@ class UbloxSerial:
         self.unique_id = unique_id
         self.port_name = None
         self.__rtk_mode = rtk_mode
-        self.__use_corrections = use_corrections
-        self.__latitude = None
-        self.__longitude = None
+        self.__status = GnssSignalStatus()
         self.__quality = None
+        self.__use_corrections = use_corrections
         self.__config_status = False
         self.__recent_ubx_message = dict[str,(float,UBXMessage)]()
         self.__service_constellations = 0
@@ -225,8 +224,8 @@ class UbloxSerial:
     def __nmea_message_received(self, message: NMEAMessage) -> None:
         self.logger.debug(" <- [Nmea:{identity}] : {bytes}".format(identity = message.identity, bytes = str(message)))
         if message.identity == "GNRMC" or message.identity == "GNGGA":
-            self.__latitude = message.lat if message.lat else None
-            self.__longitude = message.lon if message.lon else None
+            self.__status.latitude = round(float(message.lat), 6) if message.lat else self.__status.latitude
+            self.__status.longitude = round(float(message.lon), 6) if message.lon else self.__status.latitude
             if message.identity == "GNGGA":
                 self.__quality = message.quality
                 pass
@@ -325,16 +324,12 @@ class UbloxSerial:
         returns the Rover/Base status. Currently returning only Rover status. Will improve this further.
     """
     def get_status(self) -> GnssSignalStatus :
-        gnss_status = GnssSignalStatus()
         try:
             # lat and long information
-            if self.__latitude is not None and self.__latitude != 0 and self.__longitude is not None and self.__longitude != 0:
-                gnss_status.latitude = round(float(self.__latitude), 6) 
-                gnss_status.longitude = round(float(self.__longitude), 6)
-            else:
-                gnss_status.valid_fix = False
-                return gnss_status
-            
+            if self.__status.latitude is None or self.__status.latitude == 0 or self.__status.longitude is None or self.__status.longitude == 0:
+                self.__status.valid_fix = False
+                return self.__status
+            self.__status.valid_fix = True
             nav_hpposllh = self.get_recent_ubx_message('NAV-HPPOSLLH')
             nav_pvt = self.get_recent_ubx_message('NAV-PVT')
             nav_relposned = self.get_recent_ubx_message('NAV-RELPOSNED')
@@ -350,30 +345,29 @@ class UbloxSerial:
             else: 
                 rxm_rtcm = self.get_recent_ubx_message('RXM-RTCM')
                 augmentations_used = True if rxm_rtcm and rxm_rtcm.msgUsed == 2 else False
-            gnss_status.augmentations_used = augmentations_used
+            self.__status.augmentations_used = augmentations_used
             
             # heading information
-            if nav_relposned is not None:
-                gnss_status.heading = round(nav_relposned.relPosHeading, 2)
-                gnss_status.length = round(float(nav_relposned.relPosLength), 2)
+            if nav_relposned is not None and nav_relposned.relPosValid == 1 and nav_relposned.relPosHeadingValid == 1:
+                self.__status.heading = round(nav_relposned.relPosHeading, 2)
+                self.__status.length = round(float(nav_relposned.relPosLength), 2)
             
             # accuracy information
-            if nav_hpposecef is not None and nav_hpposllh is not None:
-                gnss_status.altitude = round(float(nav_hpposllh.height/1000), 4) # scaling and meters conversion
-                gnss_status.accuracy_2d = round(float(nav_hpposllh.hAcc/1000), 4) # scaling and meters conversion
-                gnss_status.accuracy_3d = round(float(nav_hpposecef.pAcc/1000), 4) # scaling and meters conversion
+            if nav_hpposecef is not None and nav_hpposecef.invalidEcef == 0 and nav_hpposllh is not None and nav_hpposllh.invalidLlh == 0:
+                self.__status.altitude = round(float(nav_hpposllh.height/1000), 4) # scaling and meters conversion
+                self.__status.accuracy_2d = round(float(nav_hpposllh.hAcc/1000), 4) # scaling and meters conversion
+                self.__status.accuracy_3d = round(float(nav_hpposecef.pAcc/1000), 4) # scaling and meters conversion
 
             if nav_cov is not None and nav_cov.posCovValid == 1:
                 variance = [round(float(nav_cov.posCovNN), 4), round(float(nav_cov.posCovNE), 4), round(float(nav_cov.posCovND), 4), round(float(nav_cov.posCovNE), 4), round(float(nav_cov.posCovEE), 4), round(float(nav_cov.posCovED), 4), round(float(nav_cov.posCovND), 4), round(float(nav_cov.posCovED), 4), round(float(nav_cov.posCovDD), 4)]
-                gnss_status.position_covariance = UserList(variance)
-                gnss_status.position_covariance_type = gnss_status.COVARIANCE_TYPE_KNOWN
+                self.__status.position_covariance = UserList(variance)
+                self.__status.position_covariance_type = self.__status.COVARIANCE_TYPE_KNOWN
                 pass
             
             # navsatstatus information
             if nav_pvt is not None:
                 status = NavSatStatus()
                 if nav_pvt.gnssFixOk == 1:
-                    gnss_status.valid_fix = True
                     if nav_pvt.carrSoln != 0:
                         status.status = NavSatStatus.STATUS_GBAS_FIX
                     else:
@@ -381,8 +375,8 @@ class UbloxSerial:
                 else:
                     status.status = NavSatStatus.STATUS_NO_FIX
                 status.service = self.__service_constellations
-                gnss_status.status = status
-                gnss_status.quality = self.__get_quality_string(nav_pvt)
+                self.__status.status = status
+                self.__status.quality = self.__get_quality_string(nav_pvt)
             
             # navsignal information
             if nav_sig is not None:
@@ -402,15 +396,13 @@ class UbloxSerial:
                     nav_sat_info_list.append(nav_sat_info)
                 pass
 
-                gnss_status.no_of_satellites = no_of_satellites
-                gnss_status.satellite_information = UserList(nav_sat_info_list)
-            else:
-                gnss_status.no_of_satellites = 0
+                self.__status.no_of_satellites = no_of_satellites
+                self.__status.satellite_information = UserList(nav_sat_info_list)
                 
         except Exception as ex:
             self.logger.error(str(ex))
             pass        
-        return gnss_status
+        return self.__status
 
     """
         returns a Ubx message only if it arrived in the last 10sec.
