@@ -1,7 +1,7 @@
 from setuptools import find_packages, setup
 import os
  
-package_name = 'tallysman_ros2'
+package_name = 'calian_gnss_ros2'
  
 data_files = [
     ('share/ament_index/resource_index/packages',
@@ -46,9 +46,9 @@ setup(
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
-            "tallysman_gps = tallysman_ros2.tallysman_gps:main",
-            "tallysman_gps_visualizer = tallysman_ros2.tallysman_gps_visualizer:main",
-            "remote_rtcm_corrections_handler = tallysman_ros2.remote_rtcm_corrections_handler:main"
+            "calian_gnss_gps = calian_gnss_ros2.gps:main",
+            "calian_gnss_gps_visualizer = calian_gnss_ros2.gps_visualizer:main",
+            "remote_rtcm_corrections_handler = calian_gnss_ros2.remote_rtcm_corrections_handler:main"
         ],
     },
 )

@@ -3,6 +3,8 @@
 # from launch.actions import DeclareLaunchArgument
 # from launch.substitutions import LaunchConfiguration
 
+import os
+from ament_index_python import get_package_share_directory
 from launch import LaunchDescription
 from launch_ros.actions import Node
 
@@ -15,23 +17,34 @@ from launch_ros.actions import Node
 #     Critical = 50
 
 def generate_launch_description():
+    config = os.path.join(
+        get_package_share_directory('calian_gnss_ros2'),
+        'params',
+        'config.yaml'
+        )
+    
+    corrections_config = os.path.join(
+        get_package_share_directory('calian_gnss_ros2'),
+        'params',
+        'pointperfect.yaml'
+        )
+    
+    logs_config = os.path.join(
+        get_package_share_directory('calian_gnss_ros2'),
+        'params',
+        'logs.yaml'
+        )
     return LaunchDescription([
         Node(
-            package='tallysman_ros2',
-            executable='tallysman_gps',
+            package='calian_gnss_ros2',
+            executable='calian_gnss_gps',
             name='base',
             output='screen',
             emulate_tty=True,
             parameters=[
-                {'baud_rate': 230400},
-                {'unique_id':'EA 41 EA 98 9A'},
-                {'use_corrections': True},
-                {'config_path': 'src/tallysman_ros2/pointperfect_files/ucenter-config.json'},
-                {'region': 'us'},
-                {'save_logs': False},
-                {'log_level': 20}
+                config, corrections_config, logs_config
             ],
-            namespace='tallysman',
+            namespace='calian_gnss',
             remappings=[
                 ('rtcm_corrections','rtcm_topic')
             ],
@@ -39,33 +52,29 @@ def generate_launch_description():
             arguments=['Heading_Base']
         ),
         Node(
-            package='tallysman_ros2',
-            executable='tallysman_gps',
+            package='calian_gnss_ros2',
+            executable='calian_gnss_gps',
             name='rover',
             output='screen',
             emulate_tty=True,
             parameters=[
-                {'baud_rate': 230400},
-                {'usb_port':'DA 4C DA 89 18'},
-                {'use_corrections': False},
-                {'save_logs': False},
-                {'log_level': 20}
+                config, corrections_config, logs_config
             ],
-            namespace='tallysman',
+            namespace='calian_gnss',
             remappings=[
                 ('rtcm_corrections','rtcm_topic')
             ],
             arguments=['Rover']
         ),
         # Node(
-        #     package='tallysman_ros2',
-        #     executable='tallysman_gps_visualizer',
+        #     package='calian_gnss_ros2',
+        #     executable='calian_gnss_gps_visualizer',
         #     name='gps_visualizer',
         #     output='screen',
         #     emulate_tty=False,
         #     parameters=[
         #         {'port': 8080}
         #     ],
-        #     namespace='tallysman',
+        #     namespace='calian_gnss',
         # )
     ])

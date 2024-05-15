@@ -1,28 +1,28 @@
-tallysman:
+calian_gnss:
   base:
     ros__parameters:
       baud_rate: 230400
       unique_id: "EA 41 EA 98 9A"
     
-tallysman:
+calian_gnss:
   rover:
     ros__parameters:
       baud_rate: 230400
       unique_id: "DA 4C DA 89 18"
 
-tallysman:
+calian_gnss:
   gps_publisher:
     ros__parameters:
       baud_rate: 230400
-      unique_id: "EA 41 EA 98 9A"
+      unique_id: "DA 4C DA 89 18"
 
-tallysman:
-  tallysman_gps:
+calian_gnss:
+  gps:
     ros__parameters:
       baud_rate: 230400
       unique_id: "EA 41 EA 98 9A"
 
-tallysman:
+calian_gnss:
   rtcm_handler:
     ros__parameters:
       key: "Wap5SA.O5VD4g:t2ltWLfva3gp5kituU5M4f9JL83BIwioTV1hGOjrSLU"

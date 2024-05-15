@@ -10,8 +10,8 @@ from ably.types.connectionstate import ConnectionEvent, ConnectionState, Connect
 from rclpy.node import Node
 import threading
 from pyrtcm import RTCMReader
-from tallysman_msg.msg import GnssSignalStatus, RtcmMessage
-from tallysman_ros2.logging import Logger, LoggingLevel, SimplifiedLogger
+from calian_gnss_ros2_msg.msg import GnssSignalStatus, RtcmMessage
+from calian_gnss_ros2.logging import Logger, LoggingLevel, SimplifiedLogger
 
 class RemoteRtcmCorrectionsHandler(Node):
     def __init__(self) -> None:
