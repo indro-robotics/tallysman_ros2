@@ -489,7 +489,7 @@ class UbloxSerial:
             config_data.extend([('CFG_UART1INPROT_RTCM3X', 1), ('CFG_MSGOUT_UBX_RXM_RTCM_UART1', 0x1), ('CFG_MSGOUT_UBX_NAV_RELPOSNED_UART1', 1)]) 
 
         if use_corrections:
-            config_data.extend([('CFG_SPARTN_USE_SOURCE', 0), ('CFG_UART1INPROT_SPARTN', 1), ('CFG_MSGOUT_UBX_RXM_SPARTN_UART1', 1), ('CFG_MSGOUT_UBX_RXM_COR_UART1', 1)])
+            config_data.extend([('CFG_SPARTN_USE_SOURCE', 0), ('CFG_UART1INPROT_SPARTN', 1), ('CFG_MSGOUT_UBX_RXM_SPARTN_UART1', 1), ('CFG_MSGOUT_UBX_RXM_COR_UART1', 1), ('CFG_UART2_BAUDRATE', 460800)])
             
         return config_data
 
