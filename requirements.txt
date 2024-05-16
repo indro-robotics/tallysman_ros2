@@ -1,7 +1,6 @@
 folium==0.14.0
 pyserial==3.5
 pytest==6.2.5
-sensor_msgs==4.2.3
 setuptools==58.2.0
 cs-events==0.4.1
 paho-mqtt==1.6.1
