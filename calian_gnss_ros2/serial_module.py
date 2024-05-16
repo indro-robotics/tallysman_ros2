@@ -1,12 +1,12 @@
 from collections import UserList
 import threading
 import time
-from typing import Literal, overload
+from typing import Literal
 import serial
 from serial.tools.list_ports import comports
 from events import Event
 import rclpy
-from pyubx2 import ubxreader, UBXMessage, GET, SET, POLL
+from pyubx2 import ubxreader, UBXMessage, POLL
 from pynmeagps import NMEAMessage
 from pyrtcm import RTCMMessage
 from calian_gnss_ros2_msg.msg import GnssSignalStatus

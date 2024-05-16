@@ -1,9 +1,6 @@
-import time
-from typing import Literal
+
 from calian_gnss_ros2.serial_module import SerialUtilities
 import rclpy
-import sys
-import base64
 import serial
 from serial.tools.list_ports import comports
 from rclpy.node import Node

@@ -1,16 +1,12 @@
 import base64
-from json import JSONDecoder
 import rclpy
 import asyncio
-import ably
-import time
 from ably import AblyRealtime
 from ably.types.message import Message
 from ably.types.connectionstate import ConnectionEvent, ConnectionState, ConnectionStateChange
 from rclpy.node import Node
-import threading
 from pyrtcm import RTCMReader
-from calian_gnss_ros2_msg.msg import GnssSignalStatus, RtcmMessage
+from calian_gnss_ros2_msg.msg import RtcmMessage
 from calian_gnss_ros2.logging import Logger, LoggingLevel, SimplifiedLogger
 
 class RemoteRtcmCorrectionsHandler(Node):
