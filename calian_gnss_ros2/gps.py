@@ -78,7 +78,7 @@ class Gps(Node):
             self.pp = PointPerfectModule(self.config_path, self.region)
             # self.ser.add_to_poll('RXM', 'RXM-SPARTN-KEY') # this is needed to periodically check for keys and reconnect to pointperfect
             self.pp.on_correction_message += self.handle_correction_message
-            self.reconnect_timer = self.create_timer(30, self.__reconnect_pointperfect_if_needed)
+            self.reconnect_timer = self.create_timer(5, self.__reconnect_pointperfect_if_needed)
         
         #endregion
         pass
@@ -172,7 +172,7 @@ class Gps(Node):
     """
     def __reconnect_pointperfect_if_needed(self):
         if self.use_corrections:
-            sptn_key = self.ser.get_recent_ubx_message('RXM-SPARTN-KEY')
+            sptn_key = self.ser.poll_once('RXM', 'RXM-SPARTN-KEY')
             if sptn_key is not None and sptn_key.numKeys == 0:
                 self.pp.reconnect()
                 pass

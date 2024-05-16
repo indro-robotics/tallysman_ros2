@@ -355,8 +355,8 @@ class UbloxSerial:
             # accuracy information
             if nav_hpposecef is not None and nav_hpposecef.invalidEcef == 0 and nav_hpposllh is not None and nav_hpposllh.invalidLlh == 0:
                 self.__status.altitude = round(float(nav_hpposllh.height*0.001), 4) # scaling and meters conversion
-                self.__status.accuracy_2d = round(float(nav_hpposllh.hAcc*0.1*0.001), 4) # scaling and meters conversion
-                self.__status.accuracy_3d = round(float(nav_hpposecef.pAcc*0.1*0.001), 4) # scaling and meters conversion
+                self.__status.accuracy_2d = round(float(nav_hpposllh.hAcc*0.001), 4) # scaling and meters conversion
+                self.__status.accuracy_3d = round(float(nav_hpposecef.pAcc*0.001), 4) # scaling and meters conversion
 
             if nav_cov is not None and nav_cov.posCovValid == 1:
                 variance = [round(float(nav_cov.posCovNN), 4), round(float(nav_cov.posCovNE), 4), round(float(nav_cov.posCovND), 4), round(float(nav_cov.posCovNE), 4), round(float(nav_cov.posCovEE), 4), round(float(nav_cov.posCovED), 4), round(float(nav_cov.posCovND), 4), round(float(nav_cov.posCovED), 4), round(float(nav_cov.posCovDD), 4)]
@@ -489,7 +489,7 @@ class UbloxSerial:
             config_data.extend([('CFG_UART1INPROT_RTCM3X', 1), ('CFG_MSGOUT_UBX_RXM_RTCM_UART1', 0x1), ('CFG_MSGOUT_UBX_NAV_RELPOSNED_UART1', 1)]) 
 
         if use_corrections:
-            config_data.extend([('CFG_SPARTN_USE_SOURCE', 0), ('CFG_UART1INPROT_SPARTN', 1), ('CFG_MSGOUT_UBX_RXM_SPARTN_UART1', 1), ('CFG_MSGOUT_UBX_RXM_COR_UART1', 1), ('CFG_UART2_BAUDRATE', 460800)])
+            config_data.extend([('CFG_SPARTN_USE_SOURCE', 0), ('CFG_UART1INPROT_SPARTN', 1), ('CFG_MSGOUT_UBX_RXM_SPARTN_UART1', 1), ('CFG_MSGOUT_UBX_RXM_COR_UART1', 1)])
             
         return config_data
 
