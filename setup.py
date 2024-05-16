@@ -48,7 +48,8 @@ setup(
         'console_scripts': [
             "calian_gnss_gps = calian_gnss_ros2.gps:main",
             "calian_gnss_gps_visualizer = calian_gnss_ros2.gps_visualizer:main",
-            "remote_rtcm_corrections_handler = calian_gnss_ros2.remote_rtcm_corrections_handler:main"
+            "remote_rtcm_corrections_handler = calian_gnss_ros2.remote_rtcm_corrections_handler:main",
+            "unique_id_finder = calian_gnss_ros2.unique_id_finder:main"
         ],
     },
 )
