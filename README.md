@@ -49,28 +49,27 @@ Calian ROS2 is a ROS2 package that provides functionality for interfacing with C
 
 These are the Parameters defined in the Calian Ros2 Node 
 
-  Path to set your parameters is: `Calian_ros2/params/config.yaml`
-
-1. **`usb_port (string)*`:**
-   - Standard/Read and write port for the Calian antenna. The udev rule will automatically detect this port and rename it to "Calian_USB" if added.
-
-2. **`baud_rate (integer)*`:**
+1. **`baud_rate (integer)*`:**
+   - Path to set this parameter is: `Calian_ros2/params/config.yaml`
    - Baud rate for serial communication. Default value should be 230400.
 
-3. **`save_logs (boolean)*`:**
+2. **`save_logs (boolean)*`:**
+   - Path to set your parameter is: `Calian_ros2/params/log.yaml`
    - Flag to save logs. If true, all the logs will be saved to the logs folder.
 
-4. **`log_level (integer)*`:**
-   - Logging level. Log level values are of ROS2 logging standards. Default is `Info`.
+3. **`log_level (integer)*`:**
+   - Path to set your parameter is: `Calian_ros2/params/log.yaml`
+   - Logging level. Log level values are of ROS2 logging standards. Default is 20.
      - `(NotSet: 0, Debug: 10, Info: 20, Warn: 30, Error: 40, Critical: 50)`.
 
-5. **`use_corrections (boolean)`:**
+6. **`use_corrections (boolean)`:**
+   - Path to set your parameter is: `Calian_ros2/params/pointperfect.yaml`
    - Flag indicating whether PPP-RTK corrections are used.
 
-6. **`config_path (string)`:**
+8. **`config_path (string)`:**
    - Path to PPP-RTK configuration file.
 
-7. **`region (string)`:**
+9. **`region (string)`:**
    - Region information. Accepted values are `us, eu, kr, au`.
 
 Note: Parameters marked with `*` can be changed dynamically; others have no effect if changed.
@@ -129,7 +128,7 @@ The Calian antenna can be operated in different modes based on configuration. Th
 
 It's crucial to configure the launch files with the appropriate parameters and arguments based on the desired mode of operation. Additionally, ensure that the necessary dependencies are met and the topic names are unique for the antennas in same configuration.
 
-# :computer: Udev Rule
+# :computer: Udev Rule --(Remove)
 
 If an Ubuntu OS is being used, add the following udev rule to detect the standard bidirectional port of the Calian antenna. This rule detects the standard bidirectional port of the antenna and renames it to “Calian_USB” followed by the Kernel number.
 
