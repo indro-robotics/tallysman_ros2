@@ -198,7 +198,7 @@ To install Calian ROS2, follow these steps:
 
 The Calian ROS2 package provides flexibility in its configurations, and example launch files for different setups can be found in the **`launch`** folder (**`/src/Calian_ros2/launch/`**). The package includes the **`Calian_gps_visualizer`** node, designed to run alongside the **`Calian_gps`** node, enabling the visualization of the published location data. Ensure to change the **`usb_port`** parameter in the launch files to the desired bidirectional ports.
 
-### RTK disabled configuration.
+### :one: RTK disabled configuration.
 
 - Ensure the presence of the **`config_file.json`** in the designated location, as specified in the PPP-RTK corrections setup section.
 - Set the parameters in the launch file:
@@ -218,7 +218,7 @@ The Calian ROS2 package provides flexibility in its configurations, and example 
 - **Note**: You can modify the default port number (8080) of the visualizer node by adjusting the **`port`** parameter in the launch file.
 <img width="1245" alt="tallysman_disabled.launch" src="https://github.com/indro-robotics/tallysman_ros2/assets/29984780/79fa878a-4112-4980-8d31-fe0dfe91d498">
 
-### RTK-Moving Baseline configuration:
+### :two: RTK-Moving Baseline configuration:
 
 For the RTK-Moving Baseline configuration, which involves two Calian antennas (one base and one rover), and only antennas with Zed-f9p chips acting as the base:
 
