@@ -26,13 +26,6 @@ This repository contains the ROS2 package for integrating Tallysman GNSS 5790 an
 
 Tallysman ROS2 is a ROS2 package that provides functionality for interfacing with Tallysman GNSS receivers. It allows you to receive and process GNSS data within your ROS2-based systems. This package provides ROS 2 nodes, drivers, and utilities to interact with Tallysman GNSS receivers, enabling accurate localization, navigation, and time synchronization for your robotic projects.
 
-### USB port
-
-To find the connected USB devices use command **`ls /dev/ttyUSB*`**. If the udev rule is added you can find the tallysman antenna ports by command **`ls /dev/Tallysman_USB*`**. Replace the **`usb_port`** parameter in the launch file with correct port name.
-To resolve permission errors with the devices use the **`chmod`** to gain access. Replace **`device_path`** with path of the device. Example **`/dev/ttyUSB0`**.
-```bash
-sudo chmod a+rw <device_path>
-```
 
 ## :dizzy: Features
 
@@ -54,7 +47,9 @@ sudo chmod a+rw <device_path>
   ```
 ## :bar_chart: Parameters
 
-These are the Parameters defined in the Tallysman Ros2 Node
+These are the Parameters defined in the Tallysman Ros2 Node 
+
+  Path to set your parameters is: `tallysman_ros2/params/config.yaml`
 
 1. **`usb_port (string)*`:**
    - Standard/Read and write port for the Tallysman antenna. The udev rule will automatically detect this port and rename it to "Tallysman_USB" if added.
@@ -85,7 +80,7 @@ Note: Parameters marked with `*` can be changed dynamically; others have no effe
 
 The Tallysman antenna can be operated in different modes based on configuration. The mode of operation cannot be changed when the node is running. It must be passed as an argument in the launch file.
 
-### Disabled Mode:
+### :one: Disabled Mode:
 
 - **Description:** This mode works as a standalone node. Any tallysman antenna can work in this mode.
 - **Functionality:** Connects to the serial port of the Tallysman antenna and publishes GPS data (latitude and longitude) on the "gps" topic with the message type NavSatFix.
@@ -100,12 +95,12 @@ The Tallysman antenna can be operated in different modes based on configuration.
   - region
 - **Launch Arguments:** `arguments=['Disabled']`
 
-### Static_Base Mode:
+### :two: Static_Base Mode:
 
 - **Description:** Under development (details not provided). Tallysman antennas equipped with Zed-f9p will only work in this mode.
 - **Functionality:** Yet to be developed.
 
-### Heading_Base Mode:
+### :three: Heading_Base Mode:
 
 - **Description:** Part of the moving baseline configuration. Tallysman antennas equipped with Zed-f9p will only work in this mode.
 - **Functionality:** Connects to the serial port of the Tallysman antenna and publishes Rtcm corrections on the "rtcm_corrections" topic. This topic is intended for internal use by the respective rover nodes.
@@ -120,7 +115,7 @@ The Tallysman antenna can be operated in different modes based on configuration.
   - region
 - **Launch Arguments:** `arguments=['Heading_Base']`
 
-### Rover Mode:
+### :four: Rover Mode:
 
 - **Description:** Can be used in both moving baseline configuration and static baseline configuration. Tallysman antennas equipped with Zed-f9p/Zed-f9r(Doesn't work in moving baseline configuration only f9p does) will only work in this mode.
 - **Functionality:** Connects to the serial port of the Tallysman antenna, subscribes to the "rtcm_corrections" topic created by the base node.
