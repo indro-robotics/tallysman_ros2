@@ -2,9 +2,7 @@
 
 This repository contains the ROS2 package for integrating Calian GNSS 5790 and GNRMC receivers with ROS2-based systems.
 
-## ROS2 Driver
-
-## Table of Contents
+# Table of Contents
 
 - [:hugs: Introduction](#hugs-introduction)
 - [:dizzy: Features](#dizzy-features)
@@ -22,19 +20,19 @@ This repository contains the ROS2 package for integrating Calian GNSS 5790 and G
 - [:ledger: Resources](#ledger-resources)
 - [:page\_with\_curl: License](#page_with_curl-license)
 
-## :hugs: Introduction
+# :hugs: Introduction
 
 Calian ROS2 is a ROS2 package that provides functionality for interfacing with Calian GNSS receivers. It allows you to receive and process GNSS data within your ROS2-based systems. This package provides ROS 2 nodes, drivers, and utilities to interact with Calian GNSS receivers, enabling accurate localization, navigation, and time synchronization for your robotic projects.
 
 
-## :dizzy: Features
+# :dizzy: Features
 
 - **Real-Time Positioning:** Achieve high-precision real-time positioning for your robots, essential for tasks like autonomous navigation and mapping
 - **ROS 2 Integration:** Seamlessly integrate GNSS data into your ROS 2 ecosystem, making it easy to access and use GNSS information within your ROS-based applications.
 - **Customizable Configuration:** Tailor the configuration to your specific requirements, with options for different GNSS constellations, frequencies, and data output formats.
 - **Monitoring Tool:** Monitor you robot's location a map view.
 
-## :envelope_with_arrow: Requirements
+# :envelope_with_arrow: Requirements
 
 - [Calian Antenna](https://tallymatics.com/product/tw5390/)
 - [Ubuntu 22](https://indrorobotics.notion.site/Installing-Dual-OS-and-upgrade-laptop-SSD-0d7c4b8ee9d54e14bbeb9f7ac24f8079?pvs=4)
@@ -45,6 +43,8 @@ Calian ROS2 is a ROS2 package that provides functionality for interfacing with C
   + IMP NOTE: Source your package every time you make change or open a new terminal. 
   + Else you will see Error like <<Package 'Calian_ros2' not found>> even if you have cloned it.
   ```
+
+# :checkered_flag: 101 Information about code:
 ## :bar_chart: Parameters
 
 These are the Parameters defined in the Calian Ros2 Node 
@@ -129,7 +129,7 @@ The Calian antenna can be operated in different modes based on configuration. Th
 
 It's crucial to configure the launch files with the appropriate parameters and arguments based on the desired mode of operation. Additionally, ensure that the necessary dependencies are met and the topic names are unique for the antennas in same configuration.
 
-## :computer: Udev Rule
+# :computer: Udev Rule
 
 If an Ubuntu OS is being used, add the following udev rule to detect the standard bidirectional port of the Calian antenna. This rule detects the standard bidirectional port of the antenna and renames it to “Calian_USB” followed by the Kernel number.
 
@@ -147,7 +147,7 @@ sudo udevadm control --reload-rules && sudo udevadm trigger
 
 **Note:** Change the `usb_port` parameter of the launch files to `/dev/ttyUSB{kernel_number}` of the bidirectional port of the antenna if udev rule is not configured.
 
-## :round_pushpin: PointPerfect Setup
+# :round_pushpin: PointPerfect Setup
 
 To achieve centimeter-level accuracy in real-time, PPP-RTK corrections are essential. These corrections can be obtained through the Pointperfect subscription service, accessible at **`https://www.u-blox.com/en/product/pointperfect`**. Follow the steps below to acquire and configure the necessary files:
 - Visit the website to subscribe to the Pointperfect service.
@@ -157,7 +157,7 @@ To achieve centimeter-level accuracy in real-time, PPP-RTK corrections are essen
 - Place the **`ucenter-config.json`** file inside the newly created **`pointperfect_files`** folder.
 - When you run the node, it will generate several files within the **`pointperfect_files`** folder, which are necessary for establishing a connection to the subscription service.
 
-## :rocket: Installation
+# :rocket: Installation
 
 To install Calian ROS2, follow these steps:
 
@@ -194,11 +194,11 @@ To install Calian ROS2, follow these steps:
     pip install -r requirements.txt
       ```
 
-## :books: Usage
+# :books: Usage
 
 The Calian ROS2 package provides flexibility in its configurations, and example launch files for different setups can be found in the **`launch`** folder (**`/src/Calian_ros2/launch/`**). The package includes the **`Calian_gps_visualizer`** node, designed to run alongside the **`Calian_gps`** node, enabling the visualization of the published location data. Ensure to change the **`usb_port`** parameter in the launch files to the desired bidirectional ports.
 
-### :one: RTK disabled configuration.
+## :one: RTK disabled configuration.
 
 - Ensure the presence of the **`config_file.json`** in the designated location, as specified in the PPP-RTK corrections setup section.
 - Set the parameters in the launch file:
@@ -218,7 +218,7 @@ The Calian ROS2 package provides flexibility in its configurations, and example 
 - **Note**: You can modify the default port number (8080) of the visualizer node by adjusting the **`port`** parameter in the launch file.
 <img width="1245" alt="tallysman_disabled.launch" src="https://github.com/indro-robotics/tallysman_ros2/assets/29984780/79fa878a-4112-4980-8d31-fe0dfe91d498">
 
-### :two: RTK-Moving Baseline configuration:
+## :two: RTK-Moving Baseline configuration:
 
 For the RTK-Moving Baseline configuration, which involves two Calian antennas (one base and one rover), and only antennas with Zed-f9p chips acting as the base:
 
