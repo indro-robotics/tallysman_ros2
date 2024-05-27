@@ -210,13 +210,13 @@ The Calian ROS2 package provides flexibility in its configurations, and example 
    ```
    ros2 launch Calian_ros2 Calian_disabled.launch.py
    ```
-<img width="1019" alt="Calian_disabled launch terminal" src="https://github.com/indro-robotics/Calian_ros2/assets/29984780/34ddfae2-102b-4ced-bd00-b0e4ce68d885">
+<img width="1019" alt="tallysman_disabled launch terminal" src="https://github.com/indro-robotics/tallysman_ros2/assets/29984780/34ddfae2-102b-4ced-bd00-b0e4ce68d885">
 
 - Upon execution, the **`Calian_gps`** node starts in disabled configuration, publishing location data to the **`gps`** topic.
 - The visualizer node is also initiated, and you can view the mapped location data at **http://localhost:8080**.
 
 - **Note**: You can modify the default port number (8080) of the visualizer node by adjusting the **`port`** parameter in the launch file.
-<img width="1245" alt="Calian_disabled.launch" src="https://github.com/indro-robotics/Calian_ros2/assets/29984780/79fa878a-4112-4980-8d31-fe0dfe91d498">
+<img width="1245" alt="tallysman_disabled.launch" src="https://github.com/indro-robotics/tallysman_ros2/assets/29984780/79fa878a-4112-4980-8d31-fe0dfe91d498">
 
 ### RTK-Moving Baseline configuration:
 
