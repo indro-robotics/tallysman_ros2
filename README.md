@@ -215,7 +215,6 @@ To view active topics use command
 ros2 topic list
 ```
 
-//photo to add
 
 ## :handshake: Contributing
 
