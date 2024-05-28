@@ -20,7 +20,7 @@ This repository contains the ROS2 package for integrating Calian GNSS receivers 
 - [:ledger: Resources](#ledger-resources)
 - [:page\_with\_curl: License](#page_with_curl-license)
 
-## :hugs: Introduction
+# :hugs: Introduction
 
 Calian Gnss ROS2 is a ROS2 package that provides functionality for interfacing with Calian GNSS receivers. It allows you to receive and process GNSS data within your ROS2-based systems. This package provides ROS 2 nodes and utilities to interact with Calian GNSS receivers, enabling accurate localization, navigation, and time synchronization for your robotic projects.
 
@@ -40,37 +40,40 @@ Calian Gnss ROS2 is a ROS2 package that provides functionality for interfacing w
 - [ROS2 (Humble)](https://www.notion.so/indrorobotics/Getting-Started-with-ROS2-a3960c906f0d46789cd1d7b329784dd0)
 - [Python](https://docs.python.org/3/)
 
-  ```diff
-  + IMP NOTE: Source your package every time you make change or open a new terminal. 
-
-  + Else you will see Error like <<Package 'calian_gnss_ros2' not found>> even if you have cloned it.
-
-  ```
-
 # :checkered_flag: 101 Information about code:
 ## :bar_chart: Parameters
 
+### :one: Log parameters
+Path: `src/calian_gnss_ros2/params/logs.yaml`
+1. **`save_logs (boolean)`:**
+   - Flag to save logs. If true, all the logs will be saved to the logs folder.
+
+2. **`log_level (integer)`:**
+   - Logging level. Log level values are of ROS2 logging standards. Default is `Info`.
+     - `(NotSet: 0, Debug: 10, Info: 20, Warn: 30, Error: 40, Critical: 50)`.
+     - 
+### :two: Config parameters:
+Path: `src/calian_gnss_ros2/params/config.yaml`
 1. **`unique_id (string)`:**
    - Unique Id of Calian Gnss receiver. Run the `Unique_id_finder` node (assumes default baudrate) to get the unique ids of all connected antennas.
-
 2. **`baud_rate (integer)`:**
    - Baud rate for serial communication. Default value should be 230400.
 
-3. **`save_logs (boolean)`:**
-   - Flag to save logs. If true, all the logs will be saved to the logs folder.
-
-4. **`log_level (integer)`:**
-   - Logging level. Log level values are of ROS2 logging standards. Default is `Info`.
-     - `(NotSet: 0, Debug: 10, Info: 20, Warn: 30, Error: 40, Critical: 50)`.
-
-5. **`use_corrections (boolean)`:**
+### :three: Pointperfect parameters
+Path: `src/calian_gnss_ros2/params/pointperfect.yaml`
+1. **`use_corrections (boolean)`:**
    - Flag indicating whether PPP-RTK corrections should be used.
 
-8. **`config_path (string)`:**
+2. **`config_path (string)`:**
    - Path to PPP-RTK configuration file.
 
-9. **`region (string)`:**
+3. **`region (string)`:**
    - Region information. Accepted values are `us, eu, kr, au`.
+
+
+
+
+
 
 ## :gear: Operating Modes
 
@@ -82,41 +85,20 @@ The Calian GNSS antenna can be operated in different modes based on configuratio
 - **Description:** This mode works as a standalone node. Any Calian Gnss antenna can work in this mode.
 - **Functionality:** Connects to the Calian Gnss antenna and publishes GPS data (latitude and longitude) on the `gps` topic with the message type NavSatFix. Complete Gnss receiver signal status is provided in the topic `gps_extended` with the message type GnssSignalStatus (Depends on calian_gnss_ros2_msg package)
 - **Launch File:** `calian_gnss_ros2/launch/disabled.launch.py`
-- **Parameters:**
-  - unique_id
-  - baud_rate
-  - save_logs
-  - log_level
-  - use_corrections
-  - config_path
-  - region
 - **Launch Arguments:** `arguments=['Disabled']`
 
-### Heading_Base Mode:
+### :two: Heading_Base Mode:
 
 - **Description:** Part of the moving baseline configuration. Calian antennas equipped with Zed-f9p will only work in this mode.
 - **Functionality:** Connects to the serial port of the Calian antenna and publishes Rtcm corrections on the "rtcm_corrections" topic. This topic is intended for internal use by the respective rover nodes.
-- **Launch File:** `Calian_ros2/launch/Calian_moving_baseline.launch.py`
-- **Parameters:**
-  - usb_port
-  - baud_rate
-  - save_logs
-  - log_level
-  - use_corrections
-  - config_path
-  - region
+- **Launch File:** `Calian_ros2/launch/moving_baseline.launch.py`
 - **Launch Arguments:** `arguments=['Heading_Base']`
 
-### :four: Rover Mode:
+### :three: Rover Mode:
 
 - **Description:** Can be used in both moving baseline configuration and static baseline configuration. Calian antennas equipped with Zed-f9p/Zed-f9r(Doesn't work in moving baseline configuration only f9p does) will only work in this mode.
 - **Functionality:** Connects to the serial port of the Calian antenna, subscribes to the "rtcm_corrections" topic created by the base node.
 - **Requirements:** Requires another node running with Heading_Base or Static_Base.
-- **Parameters:**
-  - usb_port
-  - baud_rate
-  - save_logs
-  - log_level
 - **Launch Arguments:** `arguments=['Rover']`
 
 It's crucial to configure the launch files with the appropriate parameters and arguments based on the desired mode of operation. Additionally, ensure that the necessary dependencies are met and the topic names are unique for the antennas in same configuration.
@@ -171,6 +153,13 @@ To install Calian GNSS ROS2, follow these steps:
     pip install -r requirements.txt
       ```
 
+  ```diff
+  + IMP NOTE: Source your package every time you make change or open a new terminal. 
+
+  + Else you will see Error like <<Package 'calian_gnss_ros2' not found>> even if you have cloned it.
+
+  ```
+
 # :books: Usage
 
 The Calian GNSS ROS2 package provides flexibility in its configurations, and example launch files for different setups can be found in the **`launch`** folder (**`/src/calian_gnss_ros2/launch/`**). The package includes the **`gps_visualizer`** node, designed to run alongside the **`gps`** node, enabling the visualization of the published location data. Ensure to change the **`unique_id`** parameter in the launch files to the desired gnss receiver.
@@ -214,16 +203,13 @@ To view active topics use command
 ros2 topic list
 ```
 
-## :camera_flash: Video
-
-
 ## :handshake: Contributing
 
 Contributions to Calian ROS2 are welcome! If you find any issues or have suggestions for improvements, please open an issue or submit a pull request on GitHub.
 
 ## :phone: Purchase Call
 
-For inquiries or to purchase our Tallymatics Antenna, please contact us at [Luke Corbeth(at InDro Robotics)](lcorbeth@indrorobotics.com) or [Calian](info@tallymatics.com). We are excited to assist you and provide further information about our offerings.
+For inquiries or to purchase our Calian's Antenna, please contact us at [Luke Corbeth(at InDro Robotics)](lcorbeth@indrorobotics.com) or [Calian](gnss.sales@Calian.com). We are excited to assist you and provide further information about our offerings.
 
 ## :sparkles: Reference
 
@@ -231,7 +217,7 @@ For more information about the Calian ROS2 driver please refer to [GitHub](https
 
 ## :ledger: Resources
 
-We would like to express our sincere gratitude to [Tallymatics](https://tallymatics.com/) for their collaboration and support. Their contributions have been invaluable to our project's success, and we look forward to continuing our partnership in the future.
+We would like to express our sincere gratitude to [Calian](https://www.tallysman.com/) for their collaboration and support. Their contributions have been invaluable to our project's success, and we look forward to continuing our partnership in the future.
 
 ## :page_with_curl: License
 
