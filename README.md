@@ -2,7 +2,7 @@
 
 This repository contains the ROS2 package for integrating Calian GNSS receivers with ROS2-based systems.
 
-Artical: [TruPrecision.pdf](https://www.tallysman.com/app/uploads/2023/12/TAL-TW5794-TruPrecision-SDK-1.pdf)
+Article: [TruPrecision.pdf](https://www.tallysman.com/app/uploads/2023/12/TAL-TW5794-TruPrecision-SDK-1.pdf)
 
 ![image](https://github.com/indro-robotics/tallysman_ros2/assets/29984780/a891740a-4888-45c7-87a2-b3db483f33e1)
 
@@ -17,7 +17,6 @@ Artical: [TruPrecision.pdf](https://www.tallysman.com/app/uploads/2023/12/TAL-TW
 - [:round_pushpin: PointPerfect Setup](#round_pushpin-pointperfect-setup)
 - [:rocket: Installation](#rocket-installation)
 - [:books: Usage](#books-usage)
-- [:camera\_flash: Video](#camera_flash-video)
 - [:handshake: Contributing](#handshake-contributing)
 - [:phone: Purchase Call](#phone-purchase-call)
 - [:sparkles: Reference](#sparkles-reference)
@@ -39,11 +38,13 @@ Calian Gnss ROS2 is a ROS2 package that provides functionality for interfacing w
 # :envelope_with_arrow: Requirements
 
 - [Calian GNSS Antenna](https://tallymatics.com/product/tw5390/)
-
 - [Ubuntu 22](https://indrorobotics.notion.site/Installing-Dual-OS-and-upgrade-laptop-SSD-0d7c4b8ee9d54e14bbeb9f7ac24f8079?pvs=4)
 - [ROS2 (Humble)](https://www.notion.so/indrorobotics/Getting-Started-with-ROS2-a3960c906f0d46789cd1d7b329784dd0)
 - [Python](https://docs.python.org/3/)
 
+  ```
+    NOTE: Ensure to have clear skies to get good precision values
+  ```
 # :checkered_flag: 101 Information about code:
 ## :bar_chart: Parameters
 
@@ -55,7 +56,6 @@ Path: `src/calian_gnss_ros2/params/logs.yaml`
 2. **`log_level (integer)`:**
    - Logging level. Log level values are of ROS2 logging standards. Default is `Info`.
      - `(NotSet: 0, Debug: 10, Info: 20, Warn: 30, Error: 40, Critical: 50)`.
-     - 
 ### :two: Config parameters:
 Path: `src/calian_gnss_ros2/params/config.yaml`
 1. **`unique_id (string)`:**
@@ -73,11 +73,6 @@ Path: `src/calian_gnss_ros2/params/pointperfect.yaml`
 
 3. **`region (string)`:**
    - Region information. Accepted values are `us, eu, kr, au`.
-
-
-
-
-
 
 ## :gear: Operating Modes
 
@@ -170,7 +165,7 @@ The Calian GNSS ROS2 package provides flexibility in its configurations, and exa
 
 ## :one: RTK disabled configuration.
 
-- Ensure the presence of the **`config_file.json`** in the designated location, as specified in the PPP-RTK corrections setup section.
+- TO use corrections, Ensure the presence of the **`config_file.json`** in the designated location, as specified in the PPP-RTK corrections setup section.
 - Set the parameters in the launch file:
   - **`use_corrections`** to True if the corrections service needs to be used.
   - **`config_path`** to 'src/calian_gnss_ros2/pointperfect_files/ucenter_config_file.json'
@@ -196,12 +191,25 @@ For the RTK-Moving Baseline configuration, which involves two Calian antennas (o
 - Launch the nodes with the command:
 
    ```
-   ros2 launch Calian_ros2 Calian_moving_baseline.launch.py
+   ros2 launch calian_gnss_ros2 moving_baseline.launch.py
    ```
 - Upon execution, the Calian_gps nodes start in Base and Rover modes in moving baseline configuration, publishing location data to the **`gps`** topic and extended information like heading, quality and accuracies to **`gps_extended`** topics.
 - Access the location data at **http://localhost:8080**.
 - Ensure to have clear skies to get good precision values.
 
+## :three: RTK-Static Baseline configuration:
+
+For the RTK-Static Baseline configuration, which involves one Calian antenna setup using TruPrecision as base at a known location and one or more devices/robots with one antenna acting as rovers connected to the Base.
+
+- Make sure to use the same key used for the TruPrecision (Prefilled do not change unless if you have a separate source). Change the channel name to the one given in TruPrecision application.
+- Build and source the terminal.
+- Launch the nodes with the command:
+   ```
+   ros2 launch calian_gnss_ros2 static_baseline.launch.py
+   ```
+- Upon execution, The remote rtcm corrections handler and Calian_gps nodes start in Rover mode in static baseline configuration, publishing location data to the **`gps`** topic and extended information like heading, quality and accuracies to **`gps_extended`** topics.
+- Access the location data at **http://localhost:8080**.
+- Ensure to have clear skies to get good precision values.
 To view active topics use command
 ```bash
 ros2 topic list
