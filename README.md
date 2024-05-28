@@ -2,6 +2,10 @@
 
 This repository contains the ROS2 package for integrating Calian GNSS receivers with ROS2-based systems.
 
+Artical: [TruPrecision.pdf](https://www.tallysman.com/app/uploads/2023/12/TAL-TW5794-TruPrecision-SDK-1.pdf)
+
+//photo to add
+
 
 # Table of Contents
 
@@ -202,6 +206,8 @@ To view active topics use command
 ```bash
 ros2 topic list
 ```
+
+//photo to add
 
 ## :handshake: Contributing
 
