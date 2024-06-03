@@ -5,6 +5,7 @@ import folium
 import threading
 from http.server import BaseHTTPRequestHandler, HTTPServer
 
+
 class GpsDataRequestHandler(BaseHTTPRequestHandler):
 
     def __init__(self, node, *args, **kwargs):
@@ -13,21 +14,24 @@ class GpsDataRequestHandler(BaseHTTPRequestHandler):
 
     def do_GET(self):
         map_content = self.node.generate_map()
-        
+
         self.send_response(200)
-        self.send_header('Content-type', 'text/html')
+        self.send_header("Content-type", "text/html")
         self.end_headers()
         # Send the Folium map HTML as the response
         self.wfile.write(map_content.encode())
 
+
 class GPSDataSubscriber(Node):
 
     def __init__(self):
-        super().__init__('gps_data_subscriber')
-        self.subscription = self.create_subscription(NavSatFix, 'gps', self.callback, 10)
-        
-        self.declare_parameter('port', 8080)
-        self.port = self.get_parameter('port').get_parameter_value().integer_value
+        super().__init__("gps_data_subscriber")
+        self.subscription = self.create_subscription(
+            NavSatFix, "gps", self.callback, 10
+        )
+
+        self.declare_parameter("port", 8080)
+        self.port = self.get_parameter("port").get_parameter_value().integer_value
         # Your node initialization code goes here
         self.history: list = []
 
@@ -46,8 +50,11 @@ class GPSDataSubscriber(Node):
         pass
 
     def start_server(self):
-        server_address = ('', self.port)
-        httpd = HTTPServer(server_address, lambda *args, **kwargs: GpsDataRequestHandler(self, *args, **kwargs))
+        server_address = ("", self.port)
+        httpd = HTTPServer(
+            server_address,
+            lambda *args, **kwargs: GpsDataRequestHandler(self, *args, **kwargs),
+        )
         print(f"Starting visualizer at http://localhost:{self.port}")
 
         try:
@@ -64,13 +71,15 @@ class GPSDataSubscriber(Node):
             map = folium.Map(location=[latitude, longitude], zoom_start=50)
 
             for lat, lon in self.history:
-                folium.Marker([lat, lon], icon=folium.Icon(icon='cloud', color='blue')).add_to(map)
+                folium.Marker(
+                    [lat, lon], icon=folium.Icon(icon="cloud", color="blue")
+                ).add_to(map)
         else:
             map = folium.Map()
         # Save the map to an HTML string
         map_html = map.get_root().render()
 
-        return f'<!DOCTYPE html><html><head><title>GPS Location</title></head><body>{map_html}</body></html>'    
+        return f"<!DOCTYPE html><html><head><title>GPS Location</title></head><body>{map_html}</body></html>"
 
 
 def main(args=None):
@@ -82,5 +91,6 @@ def main(args=None):
         gps_data_subscriber.destroy_node()
         rclpy.shutdown()
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     main()

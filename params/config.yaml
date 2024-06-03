@@ -1,24 +1,30 @@
 calian_gnss:
   base:
     ros__parameters:
+      use_corrections: True
+      corrections_source: "Ntrip"
       baud_rate: 230400
       unique_id: "EA 41 EA 98 9A"
     
 calian_gnss:
   rover:
     ros__parameters:
+      use_corrections: False
       baud_rate: 230400
       unique_id: "DA 4C DA 89 18"
 
 calian_gnss:
   gps_publisher:
     ros__parameters:
+      use_corrections: True
+      corrections_source: "Ntrip"
       baud_rate: 230400
       unique_id: "DA 4C DA 89 18"
 
 calian_gnss:
   gps:
     ros__parameters:
+      use_corrections: False
       baud_rate: 230400
       unique_id: "EA 41 EA 98 9A"
 
